@@ -1,65 +1,261 @@
+/* Custom styles for Nokai app */
+:root {
+  --nokai-primary: #6829A6;
+  --nokai-primary-hover: #5a1f8a;
+  --nokai-text: #333;
+  --nokai-light: #f8f9fa;
+  --nokai-border: #dee2e6;
+}
+
 body {
-  margin: 0;
-  background: linear-gradient(180deg, rgb(117, 81, 194), rgb(255, 255, 255));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #fff;
+  color: var(--nokai-text);
+}
+
+/* Layout */
+.app-container {
+  min-height: 100vh;
   display: flex;
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  height: 100vh;
-  width: 100vw;
-  justify-content: center;
+  flex-direction: column;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+}
+
+/* Navigation */
+.top-nav {
+  background-color: var(--nokai-primary);
+  padding: 0.75rem 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.nav-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  text-decoration: none;
+}
+
+.nav-brand:hover {
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+}
+
+.nav-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0;
+  background: transparent;
+  border: none;
+}
+
+.nav-links li {
+  background: transparent;
+  border: none;
+}
+
+.nav-links li:hover {
+  background: transparent;
+  border: none;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  background: transparent;
+  border: none;
+}
+
+.nav-links a:hover {
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+}
+
+.nav-links a.active {
+  font-weight: 800;
+  background: transparent;
+  border: none;
+}
+
+.nav-links a:focus {
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 280px;
+  background-color: var(--nokai-light);
+  border-right: 1px solid var(--nokai-border);
+  padding: 1rem 0;
+}
+
+.sidebar-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 1.5rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--nokai-border);
+}
+
+.sidebar-item {
+  padding: 0.75rem 1.5rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  color: var(--nokai-text);
+  border-bottom: 1px solid var(--nokai-border);
+}
+
+.sidebar-item:hover {
+  background-color: #e9ecef;
+  color: var(--nokai-primary);
+}
+
+.sidebar-item.active {
+  background-color: var(--nokai-primary);
+  color: white;
+}
+
+/* Content Area */
+.content-area {
+  flex: 1;
+  padding: 2rem;
+  background-color: #fff;
+}
+
+.content-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--nokai-border);
+}
+
+.content-title {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--nokai-text);
+  margin-bottom: 0.5rem;
+}
+
+.content-subtitle {
+  color: #6c757d;
+  font-size: 1rem;
+}
+
+.content-body {
+  background-color: #fff;
+  border: 1px solid var(--nokai-border);
+  border-radius: 0.375rem;
+  padding: 1.5rem;
+}
+
+/* Cards */
+.card {
+  background-color: #fff;
+  border: 1px solid var(--nokai-border);
+  border-radius: 0.375rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Lists */
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--nokai-border);
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+ul li {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--nokai-border);
+  background-color: #fff;
+}
+
+ul li:last-child {
+  border-bottom: none;
+}
+
+ul li:hover {
+  background-color: var(--nokai-light);
+}
+
+/* Utility classes */
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
   align-items: center;
 }
 
-main {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+.justify-between {
+  justify-content: space-between;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-  color: white;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+.gap-2 {
+  gap: 0.5rem;
 }
 
-ul {
-  padding-inline-start: 0;
-  margin-block-start: 0;
-  margin-block-end: 0;
-  list-style-type: none;
-  display: flex;
-  flex-direction: column;
-  margin: 8px 0;
-  border: 1px solid black;
-  gap: 1px;
-  background-color: black;
-  border-radius: 8px;
-  overflow: auto;
+.gap-4 {
+  gap: 1rem;
 }
 
-li {
-  background-color: white;
-  padding: 8px;
+.mb-2 {
+  margin-bottom: 0.5rem;
 }
 
-li:hover {
-  background: #dadbf9;
+.mb-4 {
+  margin-bottom: 1rem;
 }
 
-a {
-  font-weight: 800;
-  text-decoration: none;
+.mt-2 {
+  margin-top: 0.5rem;
+}
+
+/* Icons */
+.bi {
+  display: inline-block;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--nokai-border);
+  }
+  
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .content-area {
+    padding: 1rem;
+  }
+  
+  .nav-links {
+    flex-direction: column;
+  }
 }
