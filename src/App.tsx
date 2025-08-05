@@ -335,7 +335,7 @@ function App() {
             <>
               <div className="content-header">
                 <div className="d-flex align-items-center gap-3">
-                  <i className={`${getCurrentFeature()?.icon} fs-1 text-primary`}></i>
+                  <i className={`${getCurrentFeature()?.icon} fs-1`} style={{ color: 'var(--nokai-text)' }}></i>
                   <div>
                     <h1 className="content-title">{getCurrentFeature()?.title}</h1>
                     <p className="content-subtitle">{getCurrentFeature()?.description}</p>
@@ -349,7 +349,7 @@ function App() {
                 })()}
                 {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm ? (
                   <div className="row">
-                    <div className="col-md-6">
+                    <div className="col-md-4">
                       <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleInventoryCardClick}>
                         <div className="card-body">
                           <h4><i className="bi-database me-2"></i>Stock</h4>
@@ -357,18 +357,18 @@ function App() {
                           <div className="mt-3">
                             <ul className="list-unstyled">
                               <li className="d-flex align-items-center justify-content-between">
-                                <span className="text-warning">
+                                <span style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
                                   <i className="bi-exclamation-triangle me-2"></i>
                                   Low Stock
                                 </span>
-                                <strong className="text-warning">{stockStatus.lowStock}</strong>
+                                <strong style={{ color: 'rgba(243, 156, 18, 0.8)' }}>{stockStatus.lowStock}</strong>
                               </li>
                               <li className="d-flex align-items-center justify-content-between">
-                                <span className="text-danger">
+                                <span style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
                                   <i className="bi-x-circle me-2"></i>
                                   Reorder Needed
                                 </span>
-                                <strong className="text-danger">{stockStatus.reorderNeeded}</strong>
+                                <strong style={{ color: 'rgba(231, 76, 60, 0.8)' }}>{stockStatus.reorderNeeded}</strong>
                               </li>
                             </ul>
                           </div>
@@ -379,7 +379,7 @@ function App() {
                       </div>
                     </div>
                     
-                    <div className="col-md-6">
+                    <div className="col-md-4">
                       <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleUpdateCardClick}>
                         <div className="card-body">
                           <h4><i className="bi-pencil-square me-2"></i>Update</h4>
@@ -389,6 +389,21 @@ function App() {
                           </div>
                           <div className="mt-auto">
                             <small className="text-primary">Update inventory →</small>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="col-md-4">
+                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }}>
+                        <div className="card-body">
+                          <h4><i className="bi-graph-up me-2"></i>Expected Usage</h4>
+                          <p>Tracks stock used based on bookings since the last update.</p>
+                          <div className="mt-3">
+                            <h6>Total bookings: 0</h6>
+                          </div>
+                          <div className="mt-auto">
+                            <small className="text-primary">Consumption details →</small>
                           </div>
                         </div>
                       </div>
@@ -418,7 +433,7 @@ function App() {
                         <table className="table">
                           <thead className="table-light">
                             <tr>
-                              <th className="text-center">Item</th>
+                              <th className="text-start ps-3">Item</th>
                               <th className="text-center">Quantity</th>
                               <th className="text-center">Rebuy Qty</th>
                               <th className="text-center">Status</th>
@@ -429,10 +444,7 @@ function App() {
                               inventoryItems.filter(item => item !== null).map((item) => (
                                 <tr key={item.id}>
                                   <td className="text-start ps-3">
-                                    <div className="d-flex align-items-center">
-                                      <i className="bi-box me-2 text-primary"></i>
-                                      <strong>{item.id}</strong>
-                                    </div>
+                                    {item.id}
                                   </td>
                                   <td className="text-center">
                                     {item.qty?.toLocaleString() || 0}
@@ -443,12 +455,17 @@ function App() {
                                   <td className="text-center">
                                     {item.qty && item.rebuyQty ? (
                                       item.qty <= item.rebuyQty ? (
-                                        <span className="badge bg-danger">
-                                          <i className="bi-exclamation-triangle me-1"></i>
+                                        <span className="badge" style={{ backgroundColor: 'rgba(231, 76, 60, 0.8)', color: 'white', minWidth: '100px' }}>
+                                          <i className="bi-x-circle me-1"></i>
                                           Reorder
                                         </span>
+                                      ) : item.qty > item.rebuyQty && item.qty < item.rebuyQty * 1.25 ? (
+                                        <span className="badge" style={{ backgroundColor: 'rgba(243, 156, 18, 0.8)', color: 'white', minWidth: '100px' }}>
+                                          <i className="bi-exclamation-triangle me-1"></i>
+                                          Low Stock
+                                        </span>
                                       ) : (
-                                        <span className="badge bg-success">
+                                        <span className="badge" style={{ backgroundColor: 'rgba(39, 174, 96, 0.8)', color: 'white', minWidth: '100px' }}>
                                           <i className="bi-check-circle me-1"></i>
                                           Healthy
                                         </span>
@@ -478,21 +495,21 @@ function App() {
                           <div className="mt-3 p-3 bg-light rounded">
                             <div className="row text-center">
                               <div className="col-md-4">
-                                <div className="text-success">
+                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
                                   <i className="bi-check-circle fs-4"></i>
                                   <div className="small">Healthy</div>
-                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty > item.rebuyQty).length}</strong>
+                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty >= item.rebuyQty * 1.25).length}</strong>
                                 </div>
                               </div>
                               <div className="col-md-4">
-                                <div className="text-warning">
+                                <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
                                   <i className="bi-exclamation-triangle fs-4"></i>
                                   <div className="small">Low Stock</div>
-                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty && item.qty > item.rebuyQty * 0.5).length}</strong>
+                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty > item.rebuyQty && item.qty < item.rebuyQty * 1.25).length}</strong>
                                 </div>
                               </div>
                               <div className="col-md-4">
-                                <div className="text-danger">
+                                <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
                                   <i className="bi-x-circle fs-4"></i>
                                   <div className="small">Reorder Needed</div>
                                   <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty).length}</strong>
@@ -507,9 +524,12 @@ function App() {
                 ) : currentFeature === 'inventory' && showUpdateForm ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h3>Update inventory</h3>
+                      <div className="d-flex align-items-center gap-3">
+                        <i className="bi-pencil-square text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Update</h3>
+                      </div>
                       <button className="btn btn-outline-secondary" onClick={() => setShowUpdateForm(false)}>
-                        <i className="bi-arrow-left me-1"></i>Back to Inventory
+                        <i className="bi-arrow-left me-1"></i>Back
                       </button>
                     </div>
                     
@@ -521,32 +541,27 @@ function App() {
                         <p className="mt-2">Loading inventory data...</p>
                       </div>
                     ) : (
-                      <div className="card">
-                        <div className="card-body">
-                          <p className="text-muted mb-4">Update the quantities for each inventory item. All fields must be filled before submitting.</p>
-                          
-                          <div className="table-responsive">
-                            <table className="table">
-                              <thead className="table-light">
-                                <tr>
-                                  <th>Item</th>
-                                  <th>Current Qty</th>
-                                  <th>New Qty</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {inventoryItems.filter(item => item !== null).map((item) => (
-                                  <tr key={item.id}>
-                                    <td>
-                                      <div className="d-flex align-items-center">
-                                        <i className="bi-box me-2 text-primary"></i>
-                                        <strong>{item.id}</strong>
-                                      </div>
-                                    </td>
-                                    <td>
-                                      {item.qty?.toLocaleString() || 0}
-                                    </td>
-                                    <td>
+                      <div>
+                        <div className="table-responsive">
+                          <table className="table">
+                            <thead className="table-light">
+                              <tr>
+                                <th className="text-start ps-3">Item</th>
+                                <th className="text-center">Current Qty</th>
+                                <th className="text-center">New Qty</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {inventoryItems.filter(item => item !== null).map((item) => (
+                                <tr key={item.id}>
+                                  <td className="text-start ps-3">
+                                    {item.id}
+                                  </td>
+                                  <td className="text-center">
+                                    {item.qty?.toLocaleString() || 0}
+                                  </td>
+                                  <td className="text-center">
+                                    <div className="d-flex justify-content-center">
                                       <input
                                         type="number"
                                         className="form-control"
@@ -555,35 +570,51 @@ function App() {
                                         min="0"
                                         style={{ width: '100px' }}
                                       />
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        <div className="d-flex justify-content-between align-items-center mt-4">
+                          <div className="text-muted">
+                            <small>Make sure all quantities are filled before submitting</small>
                           </div>
-                          
-                          <div className="d-flex justify-content-between align-items-center mt-4">
-                            <div className="text-muted">
-                              <small>Make sure all quantities are filled before submitting</small>
-                            </div>
-                            <button 
-                              className="btn btn-primary" 
-                              onClick={handleSubmitUpdate}
-                              disabled={submitting || Object.keys(updateQuantities).length === 0}
-                            >
-                              {submitting ? (
-                                <>
-                                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                  Updating...
-                                </>
-                              ) : (
-                                <>
-                                  <i className="bi-check-circle me-2"></i>
-                                  Submit Update
-                                </>
-                              )}
-                            </button>
-                          </div>
+                          <button 
+                            className="btn" 
+                            onClick={handleSubmitUpdate}
+                            disabled={submitting || Object.keys(updateQuantities).length === 0}
+                            style={{ 
+                              backgroundColor: '#5a1f8a', 
+                              borderColor: '#5a1f8a',
+                              color: 'white',
+                              transition: 'all 0.2s ease-in-out'
+                            }}
+                            onMouseOver={(e) => {
+                              const target = e.target as HTMLButtonElement;
+                              target.style.backgroundColor = '#380a5e';
+                              target.style.borderColor = '#380a5e';
+                            }}
+                            onMouseOut={(e) => {
+                              const target = e.target as HTMLButtonElement;
+                              target.style.backgroundColor = '#5a1f8a';
+                              target.style.borderColor = '#5a1f8a';
+                            }}
+                          >
+                            {submitting ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Updating...
+                              </>
+                            ) : (
+                              <>
+                                <i className="bi-check-circle me-2"></i>
+                                Submit Update
+                              </>
+                            )}
+                          </button>
                         </div>
                       </div>
                     )}
