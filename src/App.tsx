@@ -337,8 +337,6 @@ function App() {
         throw new Error('Failed to fetch from Guesty');
       }
       
-      const result = await response.json();
-      
       // Refresh the expected usage data
       await fetchExpectedUsageData();
       
