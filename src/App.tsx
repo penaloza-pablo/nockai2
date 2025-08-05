@@ -133,6 +133,8 @@ function App() {
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
   const [expectedUsageItems, setExpectedUsageItems] = useState<ExpectedUsageItem[]>([]);
   const [fetchingGuesty, setFetchingGuesty] = useState<boolean>(false);
+  const [executingFunction, setExecutingFunction] = useState<boolean>(false);
+  const [functionResult, setFunctionResult] = useState<string>('');
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -345,6 +347,34 @@ function App() {
       alert('Se produjo un error: imposible conectar con Guesty');
     } finally {
       setFetchingGuesty(false);
+    }
+  };
+
+  const handleExecuteFunction = async () => {
+    setExecutingFunction(true);
+    setFunctionResult('');
+    try {
+      // Call the my-first-function Lambda
+      const response = await fetch('/api/my-first-function', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to execute function');
+      }
+      
+      const result = await response.text();
+      setFunctionResult(result);
+      
+    } catch (error) {
+      console.error('Error executing function:', error);
+      setFunctionResult('Error: No se pudo ejecutar la función');
+    } finally {
+      setExecutingFunction(false);
     }
   };
 
@@ -738,6 +768,26 @@ function App() {
                             </>
                           )}
                         </button>
+                        <button 
+                          className="btn btn-success" 
+                          onClick={handleExecuteFunction}
+                          disabled={executingFunction}
+                          style={{ 
+                            transition: 'all 0.2s ease-in-out'
+                          }}
+                        >
+                          {executingFunction ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                              Ejecutando...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi-play-circle me-2"></i>
+                              Ejecutar Función
+                            </>
+                          )}
+                        </button>
                         <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
                           <i className="bi-arrow-left me-1"></i>Back
                         </button>
@@ -837,6 +887,19 @@ function App() {
                                   <strong>{expectedUsageItems.reduce((sum, item) => sum + item.guestCount, 0)}</strong>
                                 </div>
                               </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Function Result Section */}
+                        {functionResult && (
+                          <div className="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
+                            <div className="d-flex align-items-center gap-2 mb-2">
+                              <i className="bi-check-circle text-success"></i>
+                              <h6 className="mb-0 text-success">Resultado de la Función</h6>
+                            </div>
+                            <div className="p-3 bg-white rounded border">
+                              <code className="text-dark">{functionResult}</code>
                             </div>
                           </div>
                         )}
