@@ -309,40 +309,30 @@ function App() {
   const handleGetFromGuesty = async () => {
     setFetchingGuesty(true);
     try {
-      // Get the last update date
-      const { data: lastUpdateRecords } = await client.models.LastUpdate.list();
-      let startDate = new Date();
-      if (lastUpdateRecords && lastUpdateRecords.length > 0) {
-        const latestRecord = lastUpdateRecords[lastUpdateRecords.length - 1];
-        if (latestRecord && latestRecord.lastUpdateSubmit) {
-          startDate = new Date(latestRecord.lastUpdateSubmit);
-        }
-      }
-      
-      const endDate = new Date();
-      
-      // Call the Lambda function
-      const response = await fetch('/api/fetchGuestyBookings', {
+      // Call the test Lambda function
+      const response = await fetch('/api/testFunction', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          test: 'data',
         }),
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch from Guesty');
+        throw new Error('Failed to call test function');
       }
       
-      // Refresh the expected usage data
-      await fetchExpectedUsageData();
+      const result = await response.json();
+      console.log('Test function result:', result);
+      
+      // Show success message
+      alert(`Función de prueba ejecutada exitosamente: ${result.message}`);
       
     } catch (error) {
-      console.error('Error fetching from Guesty:', error);
-      alert('Se produjo un error: imposible conectar con Guesty');
+      console.error('Error calling test function:', error);
+      alert('Se produjo un error al ejecutar la función de prueba');
     } finally {
       setFetchingGuesty(false);
     }
