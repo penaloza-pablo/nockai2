@@ -354,13 +354,20 @@ function App() {
     setExecutingFunction(true);
     setFunctionResult('');
     try {
-      // Call the my-first-function Lambda using the Function URL
-      const response = await fetch('https://ucx62yjkuhs4lofrfjeicvdaim0mkiac.lambda-url.eu-central-1.on.aws/', {
+      // Determine the correct URL based on environment
+      const isDevelopment = import.meta.env.DEV;
+      const url = isDevelopment 
+        ? '/api/lambda/' 
+        : 'https://ucx62yjkuhs4lofrfjeicvdaim0mkiac.lambda-url.eu-central-1.on.aws/';
+      
+      // Call the my-first-function Lambda
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),
+        mode: 'cors', // Explicitly set CORS mode
       });
       
       if (!response.ok) {
@@ -372,7 +379,11 @@ function App() {
       
     } catch (error) {
       console.error('Error executing function:', error);
-      setFunctionResult('Error: No se pudo ejecutar la función. Verifica la configuración de la Function URL.');
+      if (error instanceof TypeError && error.message.includes('NetworkError')) {
+        setFunctionResult('Error: Problema de CORS. La función necesita ser actualizada con los headers correctos.');
+      } else {
+        setFunctionResult('Error: No se pudo ejecutar la función. Verifica la configuración de la Function URL.');
+      }
     } finally {
       setExecutingFunction(false);
     }
