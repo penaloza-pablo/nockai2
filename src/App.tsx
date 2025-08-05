@@ -354,8 +354,8 @@ function App() {
     setExecutingFunction(true);
     setFunctionResult('');
     try {
-      // Call the my-first-function Lambda
-      const response = await fetch('/api/my-first-function', {
+      // Call the my-first-function Lambda using the Function URL
+      const response = await fetch('https://ucx62yjkuhs4lofrfjeicvdaim0mkiac.lambda-url.eu-central-1.on.aws/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -364,7 +364,7 @@ function App() {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to execute function');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.text();
@@ -372,7 +372,7 @@ function App() {
       
     } catch (error) {
       console.error('Error executing function:', error);
-      setFunctionResult('Error: No se pudo ejecutar la función');
+      setFunctionResult('Error: No se pudo ejecutar la función. Verifica la configuración de la Function URL.');
     } finally {
       setExecutingFunction(false);
     }
