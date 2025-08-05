@@ -1,0 +1,10 @@
+{
+  "auth": {
+    "resourceName": "auth",
+    "service": "Cognito"
+  },
+  "data": {
+    "resourceName": "data",
+    "service": "AppSync"
+  }
+} 
