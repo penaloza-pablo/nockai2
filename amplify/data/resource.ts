@@ -15,12 +15,14 @@ const schema = a.schema({
   
   Inventory: a
     .model({
-      item: a.string().required(),
-      cantidad: a.integer().required(),
-      categoria: a.string(),
-      unidad: a.string(),
-      ubicacion: a.string(),
-      fechaActualizacion: a.datetime(),
+      qty: a.integer().required(),
+      rebuyQty: a.integer().required(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+    
+  LastUpdate: a
+    .model({
+      lastUpdateSubmit: a.datetime().required(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
 });

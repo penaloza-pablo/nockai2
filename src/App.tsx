@@ -22,6 +22,15 @@ interface Section {
   features: Feature[];
 }
 
+// Define the inventory item interface based on the actual DynamoDB structure
+interface InventoryItem {
+  id: string;
+  qty: number;
+  rebuyQty: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 const sections: Section[] = [
   {
     id: 'ops',
@@ -104,8 +113,28 @@ function App() {
   const [currentSection, setCurrentSection] = useState<string>('ops');
   const [currentFeature, setCurrentFeature] = useState<string>('inventory');
   const [showInventoryTable, setShowInventoryTable] = useState<boolean>(false);
-  const [inventoryItems, setInventoryItems] = useState<Array<Schema["Inventory"]["type"]>>([]);
+  const [showUpdateForm, setShowUpdateForm] = useState<boolean>(false);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [lastUpdateDate, setLastUpdateDate] = useState<string>('04/08/2025');
+  const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  // Calculate stock status for preview
+  const getStockStatus = () => {
+    const validItems = inventoryItems.filter(item => item !== null);
+    const lowStock = validItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty && item.qty > item.rebuyQty * 0.5).length;
+    const reorderNeeded = validItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty).length;
+    return { lowStock, reorderNeeded };
+  };
+
+  const stockStatus = getStockStatus();
+
+  // Load inventory data when component mounts
+  useEffect(() => {
+    fetchInventoryData();
+    loadLastUpdateDate();
+  }, []);
 
   useEffect(() => {
     if (showInventoryTable) {
@@ -116,10 +145,21 @@ function App() {
   const fetchInventoryData = async () => {
     setLoading(true);
     try {
-      const { data } = await client.models.Inventory.list();
-      setInventoryItems(data);
+      // Add timeout to prevent freezing
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 10000);
+      });
+      
+      const apiPromise = client.models.Inventory.list();
+      const result = await Promise.race([apiPromise, timeoutPromise]) as any;
+      const { data } = result;
+      
+      // Filter out null items
+      const validItems = data.filter((item: any) => item !== null);
+      setInventoryItems(validItems);
     } catch (error) {
       console.error('Error fetching inventory data:', error);
+      setInventoryItems([]);
     } finally {
       setLoading(false);
     }
@@ -146,7 +186,88 @@ function App() {
   };
 
   const handleInventoryCardClick = () => {
+    console.log('handleInventoryCardClick called');
     setShowInventoryTable(true);
+    setShowUpdateForm(false);
+  };
+
+  const handleUpdateCardClick = () => {
+    setShowUpdateForm(true);
+    setShowInventoryTable(false);
+    
+    // Initialize update quantities with current values
+    const initialQuantities: {[key: string]: number} = {};
+    inventoryItems.forEach(item => {
+      if (item && item.id) {
+        initialQuantities[item.id] = item.qty || 0;
+      }
+    });
+    setUpdateQuantities(initialQuantities);
+  };
+
+  const handleQuantityChange = (itemId: string, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setUpdateQuantities(prev => ({
+      ...prev,
+      [itemId]: numValue
+    }));
+  };
+
+  const handleSubmitUpdate = async () => {
+    setSubmitting(true);
+    try {
+      console.log('Submitting inventory updates...');
+      
+      // Update all inventory items
+      for (const [itemId, newQty] of Object.entries(updateQuantities)) {
+        const item = inventoryItems.find(i => i && i.id === itemId);
+        if (item) {
+          await client.models.Inventory.update({
+            id: itemId,
+            qty: newQty,
+            rebuyQty: item.rebuyQty
+          });
+          console.log(`Updated ${itemId} to qty: ${newQty}`);
+        }
+      }
+      
+      // Create or update last update record
+      const now = new Date().toISOString();
+      const { data: lastUpdateRecord } = await client.models.LastUpdate.create({
+        lastUpdateSubmit: now
+      });
+      console.log('Created last update record:', lastUpdateRecord);
+      
+      // Update the display date
+      const formattedDate = new Date(now).toLocaleDateString('en-GB');
+      setLastUpdateDate(formattedDate);
+      
+      // Refresh inventory data
+      await fetchInventoryData();
+      
+      // Close the update form
+      setShowUpdateForm(false);
+      
+    } catch (error) {
+      console.error('Error submitting updates:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const loadLastUpdateDate = async () => {
+    try {
+      const { data: lastUpdateRecords } = await client.models.LastUpdate.list();
+      if (lastUpdateRecords && lastUpdateRecords.length > 0) {
+        const latestRecord = lastUpdateRecords[lastUpdateRecords.length - 1];
+        if (latestRecord && latestRecord.lastUpdateSubmit) {
+          const formattedDate = new Date(latestRecord.lastUpdateSubmit).toLocaleDateString('en-GB');
+          setLastUpdateDate(formattedDate);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading last update date:', error);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -231,41 +352,51 @@ function App() {
               </div>
               
               <div className="content-body">
-                {currentFeature === 'inventory' && !showInventoryTable ? (
+                {(() => {
+                  return null;
+                })()}
+                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm ? (
                   <div className="row">
                     <div className="col-md-6">
-                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer' }} onClick={handleInventoryCardClick}>
+                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleInventoryCardClick}>
                         <div className="card-body">
-                          <h4><i className="bi-database me-2"></i>Current Stock</h4>
-                          <p>This section connects to a DynamoDB table with the following properties:</p>
-                          <ul className="list-unstyled">
-                            <li><i className="bi-check-circle text-success me-2"></i><strong>Item:</strong> Product name or identifier</li>
-                            <li><i className="bi-check-circle text-success me-2"></i><strong>Cantidad:</strong> Current stock quantity</li>
-                          </ul>
-                          <p className="text-muted mt-3">The table will display real-time inventory levels for all items in stock.</p>
+                          <h4><i className="bi-database me-2"></i>Stock</h4>
+                          <p>Displays the last saved inventory update.</p>
+                          <div className="mt-3">
+                            <ul className="list-unstyled">
+                              <li className="d-flex align-items-center justify-content-between">
+                                <span className="text-warning">
+                                  <i className="bi-exclamation-triangle me-2"></i>
+                                  Low Stock
+                                </span>
+                                <strong className="text-warning">{stockStatus.lowStock}</strong>
+                              </li>
+                              <li className="d-flex align-items-center justify-content-between">
+                                <span className="text-danger">
+                                  <i className="bi-x-circle me-2"></i>
+                                  Reorder Needed
+                                </span>
+                                <strong className="text-danger">{stockStatus.reorderNeeded}</strong>
+                              </li>
+                            </ul>
+                          </div>
                           <div className="mt-auto">
-                            <small className="text-primary">Click to view detailed stock information →</small>
+                            <small className="text-primary">Detailed stock →</small>
                           </div>
                         </div>
                       </div>
                     </div>
                     
                     <div className="col-md-6">
-                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer' }}>
+                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleUpdateCardClick}>
                         <div className="card-body">
-                          <h4><i className="bi-pencil-square me-2"></i>Inventory Revision</h4>
-                          <p>This module allows updating the actual stock quantities for each item in the inventory table.</p>
+                          <h4><i className="bi-pencil-square me-2"></i>Update</h4>
+                          <p>Update the actual stock to reflect current inventory levels.</p>
                           <div className="mt-3">
-                            <h6>Example Items:</h6>
-                            <ul className="list-unstyled">
-                              <li><i className="bi-box me-2"></i>Vino</li>
-                              <li><i className="bi-box me-2"></i>Agua</li>
-                              <li><i className="bi-box me-2"></i>Café</li>
-                            </ul>
+                            <h6>Last update submit: {lastUpdateDate}</h6>
                           </div>
-                          <p className="text-muted mt-3">Staff can update quantities based on physical inventory counts to maintain accurate stock levels.</p>
                           <div className="mt-auto">
-                            <small className="text-primary">Click to update inventory quantities →</small>
+                            <small className="text-primary">Update inventory →</small>
                           </div>
                         </div>
                       </div>
@@ -274,9 +405,12 @@ function App() {
                 ) : currentFeature === 'inventory' && showInventoryTable ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h3>Current Stock - Inventory Table</h3>
+                      <div className="d-flex align-items-center gap-3">
+                        <i className="bi-database text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Stock</h3>
+                      </div>
                       <button className="btn btn-outline-secondary" onClick={() => setShowInventoryTable(false)}>
-                        <i className="bi-arrow-left me-1"></i>Back to Inventory
+                        <i className="bi-arrow-left me-1"></i>Back
                       </button>
                     </div>
                     
@@ -289,43 +423,176 @@ function App() {
                       </div>
                     ) : (
                       <div className="table-responsive">
-                        <table className="table table-striped table-hover">
-                          <thead className="table-dark">
+                        <table className="table">
+                          <thead className="table-light">
                             <tr>
-                              <th>Item</th>
-                              <th>Cantidad</th>
-                              <th>Categoría</th>
-                              <th>Unidad</th>
-                              <th>Ubicación</th>
-                              <th>Última Actualización</th>
+                              <th className="text-center">Item</th>
+                              <th className="text-center">Quantity</th>
+                              <th className="text-center">Rebuy Qty</th>
+                              <th className="text-center">Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {inventoryItems.length > 0 ? (
-                              inventoryItems.map((item) => (
+                              inventoryItems.filter(item => item !== null).map((item) => (
                                 <tr key={item.id}>
-                                  <td><strong>{item.item}</strong></td>
-                                  <td>
-                                    <span className={`badge ${item.cantidad > 10 ? 'bg-success' : item.cantidad > 5 ? 'bg-warning' : 'bg-danger'}`}>
-                                      {item.cantidad}
-                                    </span>
+                                  <td className="text-start ps-3">
+                                    <div className="d-flex align-items-center">
+                                      <i className="bi-box me-2 text-primary"></i>
+                                      <strong>{item.id}</strong>
+                                    </div>
                                   </td>
-                                  <td>{item.categoria || '-'}</td>
-                                  <td>{item.unidad || '-'}</td>
-                                  <td>{item.ubicacion || '-'}</td>
-                                  <td>{item.fechaActualizacion ? formatDate(item.fechaActualizacion) : '-'}</td>
+                                  <td className="text-center">
+                                    {item.qty?.toLocaleString() || 0}
+                                  </td>
+                                  <td className="text-center">
+                                    {item.rebuyQty?.toLocaleString() || 0}
+                                  </td>
+                                  <td className="text-center">
+                                    {item.qty && item.rebuyQty ? (
+                                      item.qty <= item.rebuyQty ? (
+                                        <span className="badge bg-danger">
+                                          <i className="bi-exclamation-triangle me-1"></i>
+                                          Reorder
+                                        </span>
+                                      ) : (
+                                        <span className="badge bg-success">
+                                          <i className="bi-check-circle me-1"></i>
+                                          Healthy
+                                        </span>
+                                      )
+                                    ) : (
+                                      <span className="text-muted">-</span>
+                                    )}
+                                  </td>
                                 </tr>
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={6} className="text-center text-muted py-4">
-                                  <i className="bi-inbox fs-1 d-block mb-2"></i>
-                                  No inventory items found. Add some items to get started.
+                                <td colSpan={4} className="text-center text-muted py-5">
+                                  <i className="bi-inbox fs-1 d-block mb-3"></i>
+                                  <h5>No inventory items found</h5>
+                                  <p>Add some items to DynamoDB to see them here.</p>
+                                  <small className="text-muted">
+                                    Make sure you have deployed the backend and added items to the Inventory table.
+                                  </small>
                                 </td>
                               </tr>
                             )}
                           </tbody>
                         </table>
+                        
+                        {inventoryItems.length > 0 && (
+                          <div className="mt-3 p-3 bg-light rounded">
+                            <div className="row text-center">
+                              <div className="col-md-4">
+                                <div className="text-success">
+                                  <i className="bi-check-circle fs-4"></i>
+                                  <div className="small">Healthy</div>
+                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty > item.rebuyQty).length}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-4">
+                                <div className="text-warning">
+                                  <i className="bi-exclamation-triangle fs-4"></i>
+                                  <div className="small">Low Stock</div>
+                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty && item.qty > item.rebuyQty * 0.5).length}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-4">
+                                <div className="text-danger">
+                                  <i className="bi-x-circle fs-4"></i>
+                                  <div className="small">Reorder Needed</div>
+                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty).length}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : currentFeature === 'inventory' && showUpdateForm ? (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h3>Update inventory</h3>
+                      <button className="btn btn-outline-secondary" onClick={() => setShowUpdateForm(false)}>
+                        <i className="bi-arrow-left me-1"></i>Back to Inventory
+                      </button>
+                    </div>
+                    
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="mt-2">Loading inventory data...</p>
+                      </div>
+                    ) : (
+                      <div className="card">
+                        <div className="card-body">
+                          <p className="text-muted mb-4">Update the quantities for each inventory item. All fields must be filled before submitting.</p>
+                          
+                          <div className="table-responsive">
+                            <table className="table">
+                              <thead className="table-light">
+                                <tr>
+                                  <th>Item</th>
+                                  <th>Current Qty</th>
+                                  <th>New Qty</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {inventoryItems.filter(item => item !== null).map((item) => (
+                                  <tr key={item.id}>
+                                    <td>
+                                      <div className="d-flex align-items-center">
+                                        <i className="bi-box me-2 text-primary"></i>
+                                        <strong>{item.id}</strong>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      {item.qty?.toLocaleString() || 0}
+                                    </td>
+                                    <td>
+                                      <input
+                                        type="number"
+                                        className="form-control"
+                                        value={updateQuantities[item.id] || ''}
+                                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                        min="0"
+                                        style={{ width: '100px' }}
+                                      />
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          
+                          <div className="d-flex justify-content-between align-items-center mt-4">
+                            <div className="text-muted">
+                              <small>Make sure all quantities are filled before submitting</small>
+                            </div>
+                            <button 
+                              className="btn btn-primary" 
+                              onClick={handleSubmitUpdate}
+                              disabled={submitting || Object.keys(updateQuantities).length === 0}
+                            >
+                              {submitting ? (
+                                <>
+                                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                  Updating...
+                                </>
+                              ) : (
+                                <>
+                                  <i className="bi-check-circle me-2"></i>
+                                  Submit Update
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
