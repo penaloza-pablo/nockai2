@@ -31,6 +31,17 @@ interface InventoryItem {
   updatedAt?: string;
 }
 
+interface ExpectedUsageItem {
+  id: string;
+  bookingId: string;
+  guestCount: number;
+  wine: number;
+  water: number;
+  coffeeCapsules: number;
+  checkIn: string;
+  checkOut: string;
+}
+
 const sections: Section[] = [
   {
     id: 'ops',
@@ -39,7 +50,7 @@ const sections: Section[] = [
       {
         id: 'inventory',
         title: 'Inventory',
-        description: 'Track and manage inventory across all locations',
+        description: 'Track and manage amenities inventory',
         content: 'Comprehensive inventory management system for tracking stock levels, orders, and supplies across all operational locations. Features real-time updates, automated reorder points, and detailed reporting.',
         functionality: 'This system will provide real-time inventory tracking, automated reorder notifications, barcode scanning capabilities, supplier management, and comprehensive reporting for all operational locations.',
         icon: 'bi-boxes'
@@ -119,6 +130,9 @@ function App() {
   const [lastUpdateDate, setLastUpdateDate] = useState<string>('04/08/2025');
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
+  const [expectedUsageItems, setExpectedUsageItems] = useState<ExpectedUsageItem[]>([]);
+  const [fetchingGuesty, setFetchingGuesty] = useState<boolean>(false);
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -194,6 +208,7 @@ function App() {
   const handleUpdateCardClick = () => {
     setShowUpdateForm(true);
     setShowInventoryTable(false);
+    setShowExpectedUsageTable(false);
     
     // Initialize update quantities with current values
     const initialQuantities: {[key: string]: number} = {};
@@ -203,6 +218,13 @@ function App() {
       }
     });
     setUpdateQuantities(initialQuantities);
+  };
+
+  const handleExpectedUsageCardClick = () => {
+    setShowExpectedUsageTable(true);
+    setShowInventoryTable(false);
+    setShowUpdateForm(false);
+    fetchExpectedUsageData();
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
@@ -267,6 +289,64 @@ function App() {
       }
     } catch (error) {
       console.error('Error loading last update date:', error);
+    }
+  };
+
+  const fetchExpectedUsageData = async () => {
+    setLoading(true);
+    try {
+      const { data } = await client.models.ExpectedUsage.list();
+      const validItems = data.filter((item: any) => item !== null);
+      setExpectedUsageItems(validItems);
+    } catch (error) {
+      console.error('Error fetching expected usage data:', error);
+      setExpectedUsageItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGetFromGuesty = async () => {
+    setFetchingGuesty(true);
+    try {
+      // Get the last update date
+      const { data: lastUpdateRecords } = await client.models.LastUpdate.list();
+      let startDate = new Date();
+      if (lastUpdateRecords && lastUpdateRecords.length > 0) {
+        const latestRecord = lastUpdateRecords[lastUpdateRecords.length - 1];
+        if (latestRecord && latestRecord.lastUpdateSubmit) {
+          startDate = new Date(latestRecord.lastUpdateSubmit);
+        }
+      }
+      
+      const endDate = new Date();
+      
+      // Call the Lambda function
+      const response = await fetch('/api/fetchGuestyBookings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch from Guesty');
+      }
+      
+      const result = await response.json();
+      
+      // Refresh the expected usage data
+      await fetchExpectedUsageData();
+      
+    } catch (error) {
+      console.error('Error fetching from Guesty:', error);
+      alert('Se produjo un error: imposible conectar con Guesty');
+    } finally {
+      setFetchingGuesty(false);
     }
   };
 
@@ -347,7 +427,7 @@ function App() {
                 {(() => {
                   return null;
                 })()}
-                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm ? (
+                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable ? (
                   <div className="row">
                     <div className="col-md-4">
                       <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleInventoryCardClick}>
@@ -395,12 +475,12 @@ function App() {
                     </div>
                     
                     <div className="col-md-4">
-                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }}>
+                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleExpectedUsageCardClick}>
                         <div className="card-body">
                           <h4><i className="bi-graph-up me-2"></i>Expected Usage</h4>
                           <p>Tracks stock used based on bookings since the last update.</p>
                           <div className="mt-3">
-                            <h6>Total bookings: 0</h6>
+                            <h6>Total bookings: {expectedUsageItems.length}</h6>
                           </div>
                           <div className="mt-auto">
                             <small className="text-primary">Consumption details →</small>
@@ -616,6 +696,152 @@ function App() {
                             )}
                           </button>
                         </div>
+                      </div>
+                    )}
+                  </div>
+                ) : currentFeature === 'inventory' && showExpectedUsageTable ? (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div className="d-flex align-items-center gap-3">
+                        <i className="bi-graph-up text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Expected Usage</h3>
+                      </div>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn" 
+                          onClick={handleGetFromGuesty}
+                          disabled={fetchingGuesty}
+                          style={{ 
+                            backgroundColor: '#5a1f8a', 
+                            borderColor: '#5a1f8a',
+                            color: 'white',
+                            transition: 'all 0.2s ease-in-out'
+                          }}
+                          onMouseOver={(e) => {
+                            const target = e.target as HTMLButtonElement;
+                            target.style.backgroundColor = '#380a5e';
+                            target.style.borderColor = '#380a5e';
+                          }}
+                          onMouseOut={(e) => {
+                            const target = e.target as HTMLButtonElement;
+                            target.style.backgroundColor = '#5a1f8a';
+                            target.style.borderColor = '#5a1f8a';
+                          }}
+                        >
+                          {fetchingGuesty ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                              Fetching...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi-cloud-download me-2"></i>
+                              Get from Guesty
+                            </>
+                          )}
+                        </button>
+                        <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
+                          <i className="bi-arrow-left me-1"></i>Back
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {loading ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="mt-2">Loading expected usage data...</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="table-responsive">
+                          <table className="table">
+                            <thead className="table-light">
+                              <tr>
+                                <th className="text-start ps-3">Booking ID</th>
+                                <th className="text-center">Guests</th>
+                                <th className="text-center">Wine</th>
+                                <th className="text-center">Water</th>
+                                <th className="text-center">Coffee Capsules</th>
+                                <th className="text-center">Check In</th>
+                                <th className="text-center">Check Out</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {expectedUsageItems.length > 0 ? (
+                                expectedUsageItems.filter(item => item !== null).map((item) => (
+                                  <tr key={item.id}>
+                                    <td className="text-start ps-3">
+                                      {item.bookingId}
+                                    </td>
+                                    <td className="text-center">
+                                      {item.guestCount}
+                                    </td>
+                                    <td className="text-center">
+                                      {item.wine}
+                                    </td>
+                                    <td className="text-center">
+                                      {item.water}
+                                    </td>
+                                    <td className="text-center">
+                                      {item.coffeeCapsules}
+                                    </td>
+                                    <td className="text-center">
+                                      {new Date(item.checkIn).toLocaleDateString('en-GB')}
+                                    </td>
+                                    <td className="text-center">
+                                      {new Date(item.checkOut).toLocaleDateString('en-GB')}
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={7} className="text-center text-muted py-5">
+                                    <i className="bi-inbox fs-1 d-block mb-3"></i>
+                                    <h5>No expected usage data found</h5>
+                                    <p>Click "Get from Guesty" to fetch booking data.</p>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {expectedUsageItems.length > 0 && (
+                          <div className="mt-3 p-3 bg-light rounded">
+                            <div className="row text-center">
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
+                                  <i className="bi-wine-bottle fs-4"></i>
+                                  <div className="small">Total Wine</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.wine, 0)}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
+                                  <i className="bi-droplet fs-4"></i>
+                                  <div className="small">Total Water</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.water, 0)}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
+                                  <i className="bi-cup-hot fs-4"></i>
+                                  <div className="small">Total Coffee Capsules</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.coffeeCapsules, 0)}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
+                                  <i className="bi-people fs-4"></i>
+                                  <div className="small">Total Guests</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.guestCount, 0)}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
