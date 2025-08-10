@@ -20,12 +20,6 @@ const schema = a.schema({
     })
     .authorization((allow) => [allow.publicApiKey()]),
     
-  LastUpdate: a
-    .model({
-      lastUpdateSubmit: a.datetime().required(),
-    })
-    .authorization((allow) => [allow.publicApiKey()]),
-    
   ExpectedUsage: a
     .model({
       bookingId: a.string().required(),
@@ -35,6 +29,14 @@ const schema = a.schema({
       coffeeCapsules: a.integer().required(),
       checkIn: a.datetime().required(),
       checkOut: a.datetime().required(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+    
+  InventoryExecutionHistory: a
+    .model({
+      executionNumber: a.integer().required(),
+      executionDate: a.datetime().required(),
+      user: a.string().required(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
 });

@@ -127,7 +127,7 @@ function App() {
   const [showUpdateForm, setShowUpdateForm] = useState<boolean>(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [lastUpdateDate, setLastUpdateDate] = useState<string>('04/08/2025');
+  const [lastExecutionInfo, setLastExecutionInfo] = useState<{date: string, user: string}>({date: '04/08/2025', user: 'Unknown'});
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
@@ -149,7 +149,7 @@ function App() {
   // Load inventory data when component mounts
   useEffect(() => {
     fetchInventoryData();
-    loadLastUpdateDate();
+    loadLastExecutionInfo();
   }, []);
 
   useEffect(() => {
@@ -255,16 +255,28 @@ function App() {
         }
       }
       
-      // Create or update last update record
-      const now = new Date().toISOString();
-      const { data: lastUpdateRecord } = await client.models.LastUpdate.create({
-        lastUpdateSubmit: now
-      });
-      console.log('Created last update record:', lastUpdateRecord);
+      // Create or update execution history record
+      const { data: executionRecords } = await client.models.InventoryExecutionHistory.list();
+      let nextExecutionNumber = 1;
+      if (executionRecords && executionRecords.length > 0) {
+        const maxExecutionNumber = Math.max(...executionRecords.map(r => r.executionNumber));
+        nextExecutionNumber = maxExecutionNumber + 1;
+      }
       
-      // Update the display date
-      const formattedDate = new Date(now).toLocaleDateString('en-GB');
-      setLastUpdateDate(formattedDate);
+      const now = new Date().toISOString();
+      const { data: executionRecord } = await client.models.InventoryExecutionHistory.create({
+        executionNumber: nextExecutionNumber,
+        executionDate: now,
+        user: 'Current User' // Esto se puede modificar para obtener el usuario real
+      });
+      console.log('Created execution history record:', executionRecord);
+      
+      // Update the display info
+      const formattedDateInfo = new Date(now).toLocaleDateString('en-GB');
+      setLastExecutionInfo({
+        date: formattedDateInfo,
+        user: 'Current User'
+      });
       
       // Refresh inventory data
       await fetchInventoryData();
@@ -279,18 +291,25 @@ function App() {
     }
   };
 
-  const loadLastUpdateDate = async () => {
+  const loadLastExecutionInfo = async () => {
     try {
-      const { data: lastUpdateRecords } = await client.models.LastUpdate.list();
-      if (lastUpdateRecords && lastUpdateRecords.length > 0) {
-        const latestRecord = lastUpdateRecords[lastUpdateRecords.length - 1];
-        if (latestRecord && latestRecord.lastUpdateSubmit) {
-          const formattedDate = new Date(latestRecord.lastUpdateSubmit).toLocaleDateString('en-GB');
-          setLastUpdateDate(formattedDate);
+      const { data: executionRecords } = await client.models.InventoryExecutionHistory.list();
+      if (executionRecords && executionRecords.length > 0) {
+        // Encontrar el registro con el número de ejecución más alto
+        const latestRecord = executionRecords.reduce((prev, current) => 
+          (prev.executionNumber > current.executionNumber) ? prev : current
+        );
+        
+        if (latestRecord && latestRecord.executionDate) {
+          const formattedDate = new Date(latestRecord.executionDate).toLocaleDateString('en-GB');
+          setLastExecutionInfo({
+            date: formattedDate,
+            user: latestRecord.user || 'Unknown'
+          });
         }
       }
     } catch (error) {
-      console.error('Error loading last update date:', error);
+      console.error('Error loading last execution info:', error);
     }
   };
 
@@ -311,13 +330,15 @@ function App() {
   const handleGetFromGuesty = async () => {
     setFetchingGuesty(true);
     try {
-      // Get the last update date
-      const { data: lastUpdateRecords } = await client.models.LastUpdate.list();
+      // Get the last execution date
+      const { data: executionRecords } = await client.models.InventoryExecutionHistory.list();
       let startDate = new Date();
-      if (lastUpdateRecords && lastUpdateRecords.length > 0) {
-        const latestRecord = lastUpdateRecords[lastUpdateRecords.length - 1];
-        if (latestRecord && latestRecord.lastUpdateSubmit) {
-          startDate = new Date(latestRecord.lastUpdateSubmit);
+      if (executionRecords && executionRecords.length > 0) {
+        const latestRecord = executionRecords.reduce((prev, current) => 
+          (prev.executionNumber > current.executionNumber) ? prev : current
+        );
+        if (latestRecord && latestRecord.executionDate) {
+          startDate = new Date(latestRecord.executionDate);
         }
       }
       
@@ -504,7 +525,8 @@ function App() {
                           <h4><i className="bi-pencil-square me-2"></i>Update</h4>
                           <p>Update the actual stock to reflect current inventory levels.</p>
                           <div className="mt-3">
-                            <h6>Last update submit: {lastUpdateDate}</h6>
+                            <h6>Last update submit: {lastExecutionInfo.date}</h6>
+                            <h6>By: {lastExecutionInfo.user}</h6>
                           </div>
                           <div className="mt-auto">
                             <small className="text-primary">Update inventory →</small>
