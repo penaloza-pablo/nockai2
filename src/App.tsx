@@ -31,16 +31,7 @@ interface InventoryItem {
   updatedAt?: string;
 }
 
-interface ExpectedUsageItem {
-  id: string;
-  bookingId: string;
-  guestCount: number;
-  wine: number;
-  water: number;
-  coffeeCapsules: number;
-  checkIn: string;
-  checkOut: string;
-}
+
 
 const sections: Section[] = [
   {
@@ -131,10 +122,11 @@ function App() {
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
-  const [expectedUsageItems, setExpectedUsageItems] = useState<ExpectedUsageItem[]>([]);
   const [fetchingGuesty, setFetchingGuesty] = useState<boolean>(false);
   const [executingFunction, setExecutingFunction] = useState<boolean>(false);
   const [functionResult, setFunctionResult] = useState<string>('');
+  const [bookingsCount, setBookingsCount] = useState<number>(0);
+  const [bookingsError, setBookingsError] = useState<string>('');
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -150,6 +142,7 @@ function App() {
   useEffect(() => {
     fetchInventoryData();
     loadLastUpdateInfo();
+    fetchBookingsCount();
   }, []);
 
   useEffect(() => {
@@ -161,6 +154,7 @@ function App() {
   useEffect(() => {
     if (currentFeature === 'inventory') {
       loadLastUpdateInfo();
+      fetchBookingsCount();
     }
   }, [currentFeature]);
 
@@ -232,7 +226,7 @@ function App() {
     setShowExpectedUsageTable(true);
     setShowInventoryTable(false);
     setShowUpdateForm(false);
-    fetchExpectedUsageData();
+    fetchBookingsCount();
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
@@ -319,17 +313,34 @@ function App() {
     }
   };
 
-  const fetchExpectedUsageData = async () => {
-    setLoading(true);
+  const fetchBookingsCount = async () => {
     try {
-      const { data } = await client.models.ExpectedUsage.list();
-      const validItems = data.filter((item: any) => item !== null);
-      setExpectedUsageItems(validItems);
+      const response = await fetch('https://objrydrxxmvup6a6fbnprxugzm0gbapz.lambda-url.eu-central-1.on.aws/', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
+        credentials: 'omit'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.reservationsCount !== undefined) {
+        setBookingsCount(data.reservationsCount);
+        setBookingsError('');
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (error) {
-      console.error('Error fetching expected usage data:', error);
-      setExpectedUsageItems([]);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching bookings count:', error);
+      setBookingsError('Error fetching bookings data');
+      setBookingsCount(0);
     }
   };
 
@@ -376,8 +387,8 @@ function App() {
         throw new Error('Failed to fetch from Guesty');
       }
       
-      // Refresh the expected usage data
-      await fetchExpectedUsageData();
+      // Refresh the bookings count
+      await fetchBookingsCount();
       
     } catch (error) {
       console.error('Error fetching from Guesty:', error);
@@ -431,7 +442,7 @@ function App() {
   return (
     <div className="app-container">
       {/* Top Navigation */}
-      <nav className="top-nav d-flex justify-content-between align-items-center">
+      <nav className="top-nav d-flex justify-content-between align-items-center sticky-top" style={{ zIndex: 1030 }}>
         <div className="d-flex align-items-center">
           <a href="#" className="nav-brand me-4" onClick={(e) => e.preventDefault()}>
             <img src="/vite.svg" alt="noc.ai Logo" className="me-2" style={{ width: '24px', height: '24px' }} />
@@ -467,7 +478,7 @@ function App() {
       {/* Main Content */}
       <div className="main-content">
         {/* Sidebar */}
-        <aside className="sidebar">
+        <aside className="sidebar position-fixed" style={{ top: '60px', left: 0, width: '250px', height: 'calc(100vh - 60px)', overflowY: 'auto', zIndex: 1020 }}>
           {getCurrentSection() && (
             <div>
               {/* <div className="sidebar-title">{getCurrentSection()?.title}</div> */}
@@ -486,87 +497,150 @@ function App() {
         </aside>
 
         {/* Content Area */}
-        <main className="content-area">
+        <main className="content-area" style={{ marginLeft: '250px' }}>
           {getCurrentFeature() && (
             <>
-              <div className="content-header">
-                <div className="d-flex align-items-center gap-3">
-                  <i className={`${getCurrentFeature()?.icon} fs-1`} style={{ color: 'var(--nokai-text)' }}></i>
-                  <div>
-                    <h1 className="content-title">{getCurrentFeature()?.title}</h1>
-                    <p className="content-subtitle">{getCurrentFeature()?.description}</p>
-                  </div>
-                </div>
-              </div>
+
               
               <div className="content-body">
                 {(() => {
                   return null;
                 })()}
-                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable ? (
-                  <div className="row">
-                    <div className="col-md-4">
-                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleInventoryCardClick}>
-                        <div className="card-body">
-                          <h4><i className="bi-database me-2"></i>Stock</h4>
-                          <p>Displays the last saved inventory update.</p>
-                          <div className="mt-3">
-                            <ul className="list-unstyled">
-                              <li className="d-flex align-items-center justify-content-between">
-                                <span style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
-                                  <i className="bi-exclamation-triangle me-2"></i>
-                                  Low Stock
-                                </span>
-                                <strong style={{ color: 'rgba(243, 156, 18, 0.8)' }}>{stockStatus.lowStock}</strong>
-                              </li>
-                              <li className="d-flex align-items-center justify-content-between">
-                                <span style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
-                                  <i className="bi-x-circle me-2"></i>
-                                  Reorder Needed
-                                </span>
-                                <strong style={{ color: 'rgba(231, 76, 60, 0.8)' }}>{stockStatus.reorderNeeded}</strong>
-                              </li>
-                            </ul>
+                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable && (
+                  <>
+                    <div className="row">
+                      <div className="col-md-4">
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleInventoryCardClick}>
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="mb-2"><i className="bi-database me-2"></i>Stock</h5>
+                            <p className="mb-2 small">Displays the last saved inventory update.</p>
+                            <div className="mt-auto">
+                              <ul className="list-unstyled small">
+                                <li className="d-flex align-items-center justify-content-between mb-1">
+                                  <span style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
+                                    <i className="bi-exclamation-triangle me-2"></i>
+                                    Low Stock
+                                  </span>
+                                  <strong style={{ color: 'rgba(243, 156, 18, 0.8)' }}>{stockStatus.lowStock}</strong>
+                                </li>
+                                <li className="d-flex align-items-center justify-content-between">
+                                  <span style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
+                                    <i className="bi-x-circle me-2"></i>
+                                    Reorder
+                                  </span>
+                                  <strong style={{ color: 'rgba(231, 76, 60, 0.8)' }}>{stockStatus.reorderNeeded}</strong>
+                                </li>
+                              </ul>
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-primary">Detailed stock →</small>
+                            </div>
                           </div>
-                          <div className="mt-auto">
-                            <small className="text-primary">Detailed stock →</small>
+                        </div>
+                      </div>
+                      
+                      <div className="col-md-4">
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleUpdateCardClick}>
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="mb-2"><i className="bi-pencil-square me-2"></i>Update</h5>
+                            <p className="mb-2 small">Update the actual stock to reflect current levels.</p>
+                            <div className="mt-auto">
+                              <h6 className="small mb-1">Last update: {lastUpdateInfo.date}</h6>
+                              <h6 className="small">By: {lastUpdateInfo.user}</h6>
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-primary">Update inventory →</small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="col-md-4">
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleExpectedUsageCardClick}>
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="mb-2"><i className="bi-calendar-check me-2"></i>Bookings</h5>
+                            <p className="mb-2 small">Shows bookings since the last inventory update.</p>
+                            <div className="mt-auto">
+                              {bookingsError ? (
+                                <h6 className="small text-danger">{bookingsError}</h6>
+                              ) : (
+                                <h6 className="small">Bookings: {bookingsCount}</h6>
+                              )}
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-primary">View details →</small>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="col-md-4">
-                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleUpdateCardClick}>
-                        <div className="card-body">
-                          <h4><i className="bi-pencil-square me-2"></i>Update</h4>
-                          <p>Update the actual stock to reflect current inventory levels.</p>
-                          <div className="mt-3">
-                            <h6>Last update submit: {lastUpdateInfo.date}</h6>
-                            <h6>By: {lastUpdateInfo.user}</h6>
+                    {/* Second row of cards */}
+                    <div className="row mt-4">
+                      <div className="col-md-4">
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="mb-2"><i className="bi-graph-up me-2"></i>Expected Usage</h5>
+                            <p className="mb-2 small">Calculates expected inventory consumption based on current bookings.</p>
+                            <div className="mt-auto">
+                              <div className="alert alert-info py-2">
+                                <small>
+                                  <strong>Functionality:</strong> Analyzes booking data to predict inventory needs.
+                                </small>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-primary">Coming soon →</small>
+                            </div>
                           </div>
-                          <div className="mt-auto">
-                            <small className="text-primary">Update inventory →</small>
+                        </div>
+                      </div>
+                      
+                      <div className="col-md-4">
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="mb-2"><i className="bi-gear me-2"></i>Rules</h5>
+                            <p className="mb-2 small">Business logic for inventory consumption calculations.</p>
+                            <div className="mt-auto">
+                              <div className="alert alert-warning py-2">
+                                <small>
+                                  <strong>Logic:</strong><br/>
+                                  • Wine: 1/2 guests/night<br/>
+                                  • Water: 2/guest/night<br/>
+                                  • Coffee: 2/guest/night
+                                </small>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-primary">View rules →</small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="col-md-4">
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
+                          <div className="card-body d-flex flex-column">
+                            <h5 className="mb-2"><i className="bi-chart-line me-2"></i>Analytics</h5>
+                            <p className="mb-2 small">Performance metrics and inventory insights.</p>
+                            <div className="mt-auto">
+                              <div className="alert alert-success py-2">
+                                <small>
+                                  <strong>Features:</strong> Track consumption patterns and optimize stock levels.
+                                </small>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <small className="text-primary">View analytics →</small>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="col-md-4">
-                      <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '50vh' }} onClick={handleExpectedUsageCardClick}>
-                        <div className="card-body">
-                          <h4><i className="bi-graph-up me-2"></i>Expected Usage</h4>
-                          <p>Tracks stock used based on bookings since the last update.</p>
-                          <div className="mt-3">
-                            <h6>Total bookings: {expectedUsageItems.length}</h6>
-                          </div>
-                          <div className="mt-auto">
-                            <small className="text-primary">Consumption details →</small>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : currentFeature === 'inventory' && showInventoryTable ? (
+                  </>
+                )}
+                
+                {currentFeature === 'inventory' && showInventoryTable ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
@@ -780,8 +854,8 @@ function App() {
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
-                        <i className="bi-graph-up text-dark fs-4" style={{ lineHeight: '1' }}></i>
-                        <h3 className="mb-0">Expected Usage</h3>
+                        <i className="bi-calendar-check text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Bookings</h3>
                       </div>
                       <div className="d-flex gap-2">
                         <button 
@@ -843,102 +917,21 @@ function App() {
                       </div>
                     </div>
                     
-                    {loading ? (
-                      <div className="text-center py-4">
-                        <div className="spinner-border text-primary" role="status">
-                          <span className="visually-hidden">Loading...</span>
+                    <div className="text-center py-4">
+                      <div className="p-4 bg-light rounded">
+                        <i className="bi-info-circle fs-1 text-primary mb-3"></i>
+                        <h5>Bookings Information</h5>
+                        <p className="mb-3">This section shows the list of bookings since the last update.</p>
+                        <div className="alert alert-info">
+                          <strong>Current Bookings Count:</strong> {bookingsError ? (
+                            <span className="text-danger">{bookingsError}</span>
+                          ) : (
+                            <span className="text-success">{bookingsCount}</span>
+                          )}
                         </div>
-                        <p className="mt-2">Loading expected usage data...</p>
+                        <p className="text-muted small">The data is automatically fetched from the API when the page loads.</p>
                       </div>
-                    ) : (
-                      <div>
-                        <div className="table-responsive">
-                          <table className="table">
-                            <thead className="table-light">
-                              <tr>
-                                <th className="text-start ps-3">Booking ID</th>
-                                <th className="text-center">Guests</th>
-                                <th className="text-center">Wine</th>
-                                <th className="text-center">Water</th>
-                                <th className="text-center">Coffee Capsules</th>
-                                <th className="text-center">Check In</th>
-                                <th className="text-center">Check Out</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {expectedUsageItems.length > 0 ? (
-                                expectedUsageItems.filter(item => item !== null).map((item) => (
-                                  <tr key={item.id}>
-                                    <td className="text-start ps-3">
-                                      {item.bookingId}
-                                    </td>
-                                    <td className="text-center">
-                                      {item.guestCount}
-                                    </td>
-                                    <td className="text-center">
-                                      {item.wine}
-                                    </td>
-                                    <td className="text-center">
-                                      {item.water}
-                                    </td>
-                                    <td className="text-center">
-                                      {item.coffeeCapsules}
-                                    </td>
-                                    <td className="text-center">
-                                      {new Date(item.checkIn).toLocaleDateString('en-GB')}
-                                    </td>
-                                    <td className="text-center">
-                                      {new Date(item.checkOut).toLocaleDateString('en-GB')}
-                                    </td>
-                                  </tr>
-                                ))
-                              ) : (
-                                <tr>
-                                  <td colSpan={7} className="text-center text-muted py-5">
-                                    <i className="bi-inbox fs-1 d-block mb-3"></i>
-                                    <h5>No expected usage data found</h5>
-                                    <p>Click "Get from Guesty" to fetch booking data.</p>
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                        
-                        {expectedUsageItems.length > 0 && (
-                          <div className="mt-3 p-3 bg-light rounded">
-                            <div className="row text-center">
-                              <div className="col-md-3">
-                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
-                                  <i className="bi-wine-bottle fs-4"></i>
-                                  <div className="small">Total Wine</div>
-                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.wine, 0)}</strong>
-                                </div>
-                              </div>
-                              <div className="col-md-3">
-                                <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
-                                  <i className="bi-droplet fs-4"></i>
-                                  <div className="small">Total Water</div>
-                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.water, 0)}</strong>
-                                </div>
-                              </div>
-                              <div className="col-md-3">
-                                <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
-                                  <i className="bi-cup-hot fs-4"></i>
-                                  <div className="small">Total Coffee Capsules</div>
-                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.coffeeCapsules, 0)}</strong>
-                                </div>
-                              </div>
-                              <div className="col-md-3">
-                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
-                                  <i className="bi-people fs-4"></i>
-                                  <div className="small">Total Guests</div>
-                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.guestCount, 0)}</strong>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                    </div>
 
                         {/* Function Result Section */}
                         {functionResult && (
@@ -953,14 +946,7 @@ function App() {
                           </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="card">
-                    <h4>Overview</h4>
-                    <p>{getCurrentFeature()?.content}</p>
-                  </div>
-                )}
+                ) : null}
               </div>
             </>
           )}
