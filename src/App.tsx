@@ -127,7 +127,7 @@ function App() {
   const [showUpdateForm, setShowUpdateForm] = useState<boolean>(false);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [lastExecutionInfo, setLastExecutionInfo] = useState<{date: string, user: string}>({date: '04/08/2025', user: 'Unknown'});
+  const [lastUpdateInfo, setLastUpdateInfo] = useState<{date: string, user: string}>({date: 'Loading...', user: 'Loading...'});
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
@@ -149,7 +149,7 @@ function App() {
   // Load inventory data when component mounts
   useEffect(() => {
     fetchInventoryData();
-    loadLastExecutionInfo();
+    loadLastUpdateInfo();
   }, []);
 
   useEffect(() => {
@@ -157,6 +157,12 @@ function App() {
       fetchInventoryData();
     }
   }, [showInventoryTable]);
+
+  useEffect(() => {
+    if (currentFeature === 'inventory') {
+      loadLastUpdateInfo();
+    }
+  }, [currentFeature]);
 
   const fetchInventoryData = async () => {
     setLoading(true);
@@ -255,28 +261,8 @@ function App() {
         }
       }
       
-      // Create or update execution history record
-      const { data: executionRecords } = await client.models.InventoryExecutionHistory.list();
-      let nextExecutionNumber = 1;
-      if (executionRecords && executionRecords.length > 0) {
-        const maxExecutionNumber = Math.max(...executionRecords.map(r => r.executionNumber));
-        nextExecutionNumber = maxExecutionNumber + 1;
-      }
-      
-      const now = new Date().toISOString();
-      const { data: executionRecord } = await client.models.InventoryExecutionHistory.create({
-        executionNumber: nextExecutionNumber,
-        executionDate: now,
-        user: 'Current User' // Esto se puede modificar para obtener el usuario real
-      });
-      console.log('Created execution history record:', executionRecord);
-      
-      // Update the display info
-      const formattedDateInfo = new Date(now).toLocaleDateString('en-GB');
-      setLastExecutionInfo({
-        date: formattedDateInfo,
-        user: 'Current User'
-      });
+      // Refresh the last update info from the API
+      await loadLastUpdateInfo();
       
       // Refresh inventory data
       await fetchInventoryData();
@@ -291,25 +277,45 @@ function App() {
     }
   };
 
-  const loadLastExecutionInfo = async () => {
+  const loadLastUpdateInfo = async () => {
     try {
-      const { data: executionRecords } = await client.models.InventoryExecutionHistory.list();
-      if (executionRecords && executionRecords.length > 0) {
-        // Encontrar el registro con el número de ejecución más alto
-        const latestRecord = executionRecords.reduce((prev, current) => 
-          (prev.executionNumber > current.executionNumber) ? prev : current
-        );
-        
-        if (latestRecord && latestRecord.executionDate) {
-          const formattedDate = new Date(latestRecord.executionDate).toLocaleDateString('en-GB');
-          setLastExecutionInfo({
-            date: formattedDate,
-            user: latestRecord.user || 'Unknown'
-          });
-        }
+      const response = await fetch('https://ydyv5ew3mamt4x4jd4ozp3yaee0kveku.lambda-url.eu-central-1.on.aws/', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.message === 'No execution history found.') {
+        setLastUpdateInfo({
+          date: 'Error',
+          user: 'Error'
+        });
+      } else if (data.ExecutionDate && data.User) {
+        const formattedDate = new Date(data.ExecutionDate).toLocaleDateString('en-GB');
+        setLastUpdateInfo({
+          date: formattedDate,
+          user: data.User
+        });
+      } else {
+        setLastUpdateInfo({
+          date: 'Error',
+          user: 'Error'
+        });
       }
     } catch (error) {
-      console.error('Error loading last execution info:', error);
+      console.error('Error loading last update info:', error);
+      setLastUpdateInfo({
+        date: 'Error',
+        user: 'Error'
+      });
     }
   };
 
@@ -330,22 +336,30 @@ function App() {
   const handleGetFromGuesty = async () => {
     setFetchingGuesty(true);
     try {
-      // Get the last execution date
-      const { data: executionRecords } = await client.models.InventoryExecutionHistory.list();
+      // Get the last execution date from the API
+      const response = await fetch('https://ydyv5ew3mamt4x4jd4ozp3yaee0kveku.lambda-url.eu-central-1.on.aws/', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch from API');
+      }
+
+      const data = await response.json();
       let startDate = new Date();
-      if (executionRecords && executionRecords.length > 0) {
-        const latestRecord = executionRecords.reduce((prev, current) => 
-          (prev.executionNumber > current.executionNumber) ? prev : current
-        );
-        if (latestRecord && latestRecord.executionDate) {
-          startDate = new Date(latestRecord.executionDate);
-        }
+      
+      if (data.ExecutionDate && data.message !== 'No execution history found.') {
+        startDate = new Date(data.ExecutionDate);
       }
       
       const endDate = new Date();
       
       // Call the Lambda function
-      const response = await fetch('/api/fetchGuestyBookings', {
+      const guestyResponse = await fetch('/api/fetchGuestyBookings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -356,7 +370,7 @@ function App() {
         }),
       });
       
-      if (!response.ok) {
+      if (!guestyResponse.ok) {
         throw new Error('Failed to fetch from Guesty');
       }
       
@@ -525,8 +539,8 @@ function App() {
                           <h4><i className="bi-pencil-square me-2"></i>Update</h4>
                           <p>Update the actual stock to reflect current inventory levels.</p>
                           <div className="mt-3">
-                            <h6>Last update submit: {lastExecutionInfo.date}</h6>
-                            <h6>By: {lastExecutionInfo.user}</h6>
+                            <h6>Last update submit: {lastUpdateInfo.date}</h6>
+                            <h6>By: {lastUpdateInfo.user}</h6>
                           </div>
                           <div className="mt-auto">
                             <small className="text-primary">Update inventory →</small>

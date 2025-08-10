@@ -31,14 +31,6 @@ const schema = a.schema({
       checkOut: a.datetime().required(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
-    
-  InventoryExecutionHistory: a
-    .model({
-      executionNumber: a.integer().required(),
-      executionDate: a.datetime().required(),
-      user: a.string().required(),
-    })
-    .authorization((allow) => [allow.publicApiKey()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
