@@ -343,6 +343,8 @@ function App() {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
+        mode: 'cors',
+  credentials: 'omit'  // <— importante si usas Origin: *
       });
 
       if (!response.ok) {
