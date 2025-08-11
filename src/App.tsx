@@ -131,10 +131,10 @@ function App() {
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState<boolean>(false);
   const [bookingsCount, setBookingsCount] = useState<number>(0);
   const [bookingsError, setBookingsError] = useState<string>('');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState<boolean>(false);
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -234,6 +234,7 @@ function App() {
     setShowExpectedUsageTable(true);
     setShowInventoryTable(false);
     setShowUpdateForm(false);
+    await fetchBookingsCount();
     await fetchBookingsData();
   };
 
@@ -355,7 +356,7 @@ function App() {
   const fetchBookingsData = async () => {
     setLoadingBookings(true);
     try {
-      const response = await fetch('https://a2hytc4pdf3gqsfdosgukc3l3u0tgukb.lambda-url.eu-central-1.on.aws/', {
+      const response = await fetch('https://t5lpzd66lrmg62glr3huobvvbq0ixpnb.lambda-url.eu-central-1.on.aws/', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -370,21 +371,33 @@ function App() {
       }
 
       const data = await response.json();
+      console.log('Raw API response:', data);
       
-      if (data.bookings && Array.isArray(data.bookings)) {
-        setBookings(data.bookings);
-      } else {
-        setBookings([]);
-      }
+      // Parse the body string to get the actual data
+      const bodyData = JSON.parse(data.body);
+      console.log('Parsed body data:', bodyData);
+      
+      // Extract bookings from the items array and map the field names
+      const bookingsData = (bodyData.items || []).map((item: any) => ({
+        bookingId: item.BookingID,
+        checkinDate: item.CheckinDate,
+        guests: item.Guests,
+        listingNickname: item.ListingNickname,
+        nights: item.Nights,
+        roomType: item.RoomType
+      }));
+      
+      console.log('Processed bookings data:', bookingsData);
+      setBookings(bookingsData);
+      setBookingsError('');
     } catch (error) {
       console.error('Error fetching bookings data:', error);
+      setBookingsError('Error fetching bookings data');
       setBookings([]);
     } finally {
       setLoadingBookings(false);
     }
   };
-
-
 
   return (
     <div className="app-container">
@@ -822,7 +835,7 @@ function App() {
                           <thead className="table-light">
                             <tr>
                               <th className="text-start ps-3">Booking ID</th>
-                              <th className="text-center">Check-in Date</th>
+                              <th className="text-center">Checkin Date</th>
                               <th className="text-center">Guests</th>
                               <th className="text-start">Listing Nickname</th>
                               <th className="text-center">Nights</th>
@@ -860,7 +873,7 @@ function App() {
                                   <h5>No bookings found</h5>
                                   <p>No booking data available at the moment.</p>
                                   <small className="text-muted">
-                                    The data is automatically fetched when you open this section.
+                                    {bookingsError || 'The data is automatically fetched from the API when the page loads.'}
                                   </small>
                                 </td>
                               </tr>
@@ -886,8 +899,8 @@ function App() {
                                 </div>
                               </div>
                               <div className="col-md-4">
-                                <div style={{ color: 'rgba(128, 0, 255, 0.8)' }}>
-                                  <i className="bi-moon-stars fs-4"></i>
+                                <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
+                                  <i className="bi-moon fs-4"></i>
                                   <div className="small">Total Nights</div>
                                   <strong>{bookings.reduce((sum, booking) => sum + booking.nights, 0)}</strong>
                                 </div>
