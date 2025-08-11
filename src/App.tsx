@@ -31,6 +31,15 @@ interface InventoryItem {
   updatedAt?: string;
 }
 
+// Define the booking interface for the new API
+interface Booking {
+  bookingId: string;
+  checkinDate: string;
+  guests: number;
+  listingNickname: string;
+  nights: number;
+  roomType: string;
+}
 
 
 const sections: Section[] = [
@@ -122,9 +131,8 @@ function App() {
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
-  const [fetchingGuesty, setFetchingGuesty] = useState<boolean>(false);
-  const [executingFunction, setExecutingFunction] = useState<boolean>(false);
-  const [functionResult, setFunctionResult] = useState<string>('');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState<boolean>(false);
   const [bookingsCount, setBookingsCount] = useState<number>(0);
   const [bookingsError, setBookingsError] = useState<string>('');
 
@@ -222,11 +230,11 @@ function App() {
     setUpdateQuantities(initialQuantities);
   };
 
-  const handleExpectedUsageCardClick = () => {
+  const handleExpectedUsageCardClick = async () => {
     setShowExpectedUsageTable(true);
     setShowInventoryTable(false);
     setShowUpdateForm(false);
-    fetchBookingsCount();
+    await fetchBookingsData();
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
@@ -344,96 +352,35 @@ function App() {
     }
   };
 
-  const handleGetFromGuesty = async () => {
-    setFetchingGuesty(true);
+  const fetchBookingsData = async () => {
+    setLoadingBookings(true);
     try {
-      // Get the last execution date from the API
-      const response = await fetch('https://ydyv5ew3mamt4x4jd4ozp3yaee0kveku.lambda-url.eu-central-1.on.aws/', {
+      const response = await fetch('https://a2hytc4pdf3gqsfdosgukc3l3u0tgukb.lambda-url.eu-central-1.on.aws/', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
         mode: 'cors',
-  credentials: 'omit'  // <— importante si usas Origin: *
+        credentials: 'omit'
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch from API');
-      }
-
-      const data = await response.json();
-      let startDate = new Date();
-      
-      if (data.ExecutionDate && data.message !== 'No execution history found.') {
-        startDate = new Date(data.ExecutionDate);
-      }
-      
-      const endDate = new Date();
-      
-      // Call the Lambda function
-      const guestyResponse = await fetch('/api/fetchGuestyBookings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-        }),
-      });
-      
-      if (!guestyResponse.ok) {
-        throw new Error('Failed to fetch from Guesty');
-      }
-      
-      // Refresh the bookings count
-      await fetchBookingsCount();
-      
-    } catch (error) {
-      console.error('Error fetching from Guesty:', error);
-      alert('Se produjo un error: imposible conectar con Guesty');
-    } finally {
-      setFetchingGuesty(false);
-    }
-  };
-
-  const handleExecuteFunction = async () => {
-    setExecutingFunction(true);
-    setFunctionResult('');
-    try {
-      // Determine the correct URL based on environment
-      const isDevelopment = import.meta.env.DEV;
-      const url = isDevelopment 
-        ? '/api/lambda/' 
-        : 'https://ucx62yjkuhs4lofrfjeicvdaim0mkiac.lambda-url.eu-central-1.on.aws/';
-      
-      // Call the my-first-function Lambda
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-        mode: 'cors', // Explicitly set CORS mode
-      });
-      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
       
-      const result = await response.text();
-      setFunctionResult(result);
-      
-    } catch (error) {
-      console.error('Error executing function:', error);
-      if (error instanceof TypeError && error.message.includes('NetworkError')) {
-        setFunctionResult('Error: Problema de CORS. La función necesita ser actualizada con los headers correctos.');
+      if (data.bookings && Array.isArray(data.bookings)) {
+        setBookings(data.bookings);
       } else {
-        setFunctionResult('Error: No se pudo ejecutar la función. Verifica la configuración de la Function URL.');
+        setBookings([]);
       }
+    } catch (error) {
+      console.error('Error fetching bookings data:', error);
+      setBookings([]);
     } finally {
-      setExecutingFunction(false);
+      setLoadingBookings(false);
     }
   };
 
@@ -857,95 +804,100 @@ function App() {
                         <i className="bi-calendar-check text-dark fs-4" style={{ lineHeight: '1' }}></i>
                         <h3 className="mb-0">Bookings</h3>
                       </div>
-                      <div className="d-flex gap-2">
-                        <button 
-                          className="btn" 
-                          onClick={handleGetFromGuesty}
-                          disabled={fetchingGuesty}
-                          style={{ 
-                            backgroundColor: '#5a1f8a', 
-                            borderColor: '#5a1f8a',
-                            color: 'white',
-                            transition: 'all 0.2s ease-in-out'
-                          }}
-                          onMouseOver={(e) => {
-                            const target = e.target as HTMLButtonElement;
-                            target.style.backgroundColor = '#380a5e';
-                            target.style.borderColor = '#380a5e';
-                          }}
-                          onMouseOut={(e) => {
-                            const target = e.target as HTMLButtonElement;
-                            target.style.backgroundColor = '#5a1f8a';
-                            target.style.borderColor = '#5a1f8a';
-                          }}
-                        >
-                          {fetchingGuesty ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                              Fetching...
-                            </>
-                          ) : (
-                            <>
-                              <i className="bi-cloud-download me-2"></i>
-                              Get from Guesty
-                            </>
-                          )}
-                        </button>
-                        <button 
-                          className="btn btn-success" 
-                          onClick={handleExecuteFunction}
-                          disabled={executingFunction}
-                          style={{ 
-                            transition: 'all 0.2s ease-in-out'
-                          }}
-                        >
-                          {executingFunction ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                              Ejecutando...
-                            </>
-                          ) : (
-                            <>
-                              <i className="bi-play-circle me-2"></i>
-                              Ejecutar Función
-                            </>
-                          )}
-                        </button>
-                        <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
-                          <i className="bi-arrow-left me-1"></i>Back
-                        </button>
-                      </div>
+                      <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
+                        <i className="bi-arrow-left me-1"></i>Back
+                      </button>
                     </div>
                     
-                    <div className="text-center py-4">
-                      <div className="p-4 bg-light rounded">
-                        <i className="bi-info-circle fs-1 text-primary mb-3"></i>
-                        <h5>Bookings Information</h5>
-                        <p className="mb-3">This section shows the list of bookings since the last update.</p>
-                        <div className="alert alert-info">
-                          <strong>Current Bookings Count:</strong> {bookingsError ? (
-                            <span className="text-danger">{bookingsError}</span>
-                          ) : (
-                            <span className="text-success">{bookingsCount}</span>
-                          )}
+                    {loadingBookings ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
                         </div>
-                        <p className="text-muted small">The data is automatically fetched from the API when the page loads.</p>
+                        <p className="mt-2">Loading bookings data...</p>
                       </div>
-                    </div>
-
-                        {/* Function Result Section */}
-                        {functionResult && (
-                          <div className="mt-3 p-3 bg-success bg-opacity-10 border border-success rounded">
-                            <div className="d-flex align-items-center gap-2 mb-2">
-                              <i className="bi-check-circle text-success"></i>
-                              <h6 className="mb-0 text-success">Resultado de la Función</h6>
-                            </div>
-                            <div className="p-3 bg-white rounded border">
-                              <code className="text-dark">{functionResult}</code>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table">
+                          <thead className="table-light">
+                            <tr>
+                              <th className="text-start ps-3">Booking ID</th>
+                              <th className="text-center">Check-in Date</th>
+                              <th className="text-center">Guests</th>
+                              <th className="text-start">Listing Nickname</th>
+                              <th className="text-center">Nights</th>
+                              <th className="text-start">Room Type</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bookings.length > 0 ? (
+                              bookings.map((booking) => (
+                                <tr key={booking.bookingId}>
+                                  <td className="text-start ps-3">
+                                    {booking.bookingId}
+                                  </td>
+                                  <td className="text-center">
+                                    {new Date(booking.checkinDate).toLocaleDateString('en-GB')}
+                                  </td>
+                                  <td className="text-center">
+                                    {booking.guests}
+                                  </td>
+                                  <td className="text-start">
+                                    {booking.listingNickname}
+                                  </td>
+                                  <td className="text-center">
+                                    {booking.nights}
+                                  </td>
+                                  <td className="text-start">
+                                    {booking.roomType}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={6} className="text-center text-muted py-5">
+                                  <i className="bi-calendar-x fs-1 d-block mb-3"></i>
+                                  <h5>No bookings found</h5>
+                                  <p>No booking data available at the moment.</p>
+                                  <small className="text-muted">
+                                    The data is automatically fetched when you open this section.
+                                  </small>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                        
+                        {bookings.length > 0 && (
+                          <div className="mt-3 p-3 bg-light rounded">
+                            <div className="row text-center">
+                              <div className="col-md-4">
+                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
+                                  <i className="bi-calendar-check fs-4"></i>
+                                  <div className="small">Total Bookings</div>
+                                  <strong>{bookings.length}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-4">
+                                <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
+                                  <i className="bi-people fs-4"></i>
+                                  <div className="small">Total Guests</div>
+                                  <strong>{bookings.reduce((sum, booking) => sum + booking.guests, 0)}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-4">
+                                <div style={{ color: 'rgba(128, 0, 255, 0.8)' }}>
+                                  <i className="bi-moon-stars fs-4"></i>
+                                  <div className="small">Total Nights</div>
+                                  <strong>{bookings.reduce((sum, booking) => sum + booking.nights, 0)}</strong>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
+                    )}
+                  </div>
                 ) : null}
               </div>
             </>
