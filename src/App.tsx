@@ -371,11 +371,9 @@ function App() {
       }
 
       const data = await response.json();
-      console.log('Raw API response:', data);
       
       // Parse the body string to get the actual data
       const bodyData = JSON.parse(data.body);
-      console.log('Parsed body data:', bodyData);
       
       // Extract bookings from the items array and map the field names
       const bookingsData = (bodyData.items || []).map((item: any) => ({
@@ -387,7 +385,6 @@ function App() {
         roomType: item.RoomType
       }));
       
-      console.log('Processed bookings data:', bookingsData);
       setBookings(bookingsData);
       setBookingsError('');
     } catch (error) {
