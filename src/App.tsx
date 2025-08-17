@@ -253,16 +253,78 @@ function App() {
       
       // Check if the response has the expected structure
       if (data && data.items && Array.isArray(data.items)) {
-        console.log('Setting inventory items:', data.items);
+        console.log('=== INVENTORY DATA RECEIVED ===');
+        console.log('Total items received:', data.items.length);
+        console.log('Items data:', JSON.stringify(data.items, null, 2));
+        console.log('Setting inventory items to state...');
         setApiInventoryItems(data.items);
         setApiError('');
+        console.log('Inventory items state updated successfully');
+        console.log('=====================================');
       } else {
+        console.error('=== INVENTORY DATA ERROR ===');
+        console.error('Response structure:', data);
         console.error('No items array found in response');
         setApiInventoryItems([]);
         setApiError('No items array found in response');
+        console.error('====================================');
       }
     } catch (error) {
       console.error('Error fetching API inventory data:', error);
+      setApiInventoryItems([]);
+      setApiError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchApiInventoryDataForUpdate = async () => {
+    setLoading(true);
+    setApiError('');
+    try {
+      console.log('Fetching API inventory data for update...');
+      const response = await fetch('https://7a4ejsev6lliagmuiawmoki2va0iculn.lambda-url.eu-central-1.on.aws/');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('API response for update received:', data);
+      
+              // Check if the response has the expected structure
+        if (data && data.items && Array.isArray(data.items)) {
+          console.log('=== UPDATE FORM INVENTORY DATA RECEIVED ===');
+          console.log('Total items received for update form:', data.items.length);
+          console.log('Items data for update form:', JSON.stringify(data.items, null, 2));
+          console.log('Setting inventory items for update form...');
+          setApiInventoryItems(data.items);
+          
+          // Initialize update quantities with API data
+          console.log('Initializing update quantities...');
+          const initialQuantities: {[key: string]: number} = {};
+          data.items.forEach((item: any) => {
+            if (item && item.Item) {
+              initialQuantities[item.Item] = item.Qty || 0;
+              console.log(`Setting ${item.Item}: ${item.Qty}`);
+            }
+          });
+          console.log('Final update quantities object:', initialQuantities);
+          setUpdateQuantities(initialQuantities);
+          
+          setApiError('');
+          console.log('Update form inventory data updated successfully');
+          console.log('==============================================');
+        } else {
+          console.error('=== UPDATE FORM INVENTORY DATA ERROR ===');
+          console.error('Response structure for update form:', data);
+          console.error('No items array found in response for update');
+          setApiInventoryItems([]);
+          setApiError('No items array found in response');
+          console.error('==============================================');
+        }
+    } catch (error) {
+      console.error('Error fetching API inventory data for update:', error);
       setApiInventoryItems([]);
       setApiError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
@@ -300,7 +362,7 @@ function App() {
     setShowRules(false);
   };
 
-  const handleUpdateCardClick = () => {
+  const handleUpdateCardClick = async () => {
     setShowUpdateForm(true);
     setShowInventoryTable(false);
     setShowBookingsTable(false);
@@ -308,14 +370,8 @@ function App() {
     setShowAlarmsTable(false);
     setShowRules(false);
     
-    // Initialize update quantities with current values
-    const initialQuantities: {[key: string]: number} = {};
-    inventoryItems.forEach(item => {
-      if (item && item.id) {
-        initialQuantities[item.id] = item.qty || 0;
-      }
-    });
-    setUpdateQuantities(initialQuantities);
+    // Fetch API data and initialize update quantities
+    await fetchApiInventoryDataForUpdate();
   };
 
   const handleBookingsCardClick = async () => {
@@ -434,12 +490,18 @@ function App() {
     console.log(`Changed items per page to ${newItemsPerPage}`);
   };
 
-  const handleQuantityChange = (itemId: string, value: string) => {
+  const handleQuantityChange = (itemName: string, value: string) => {
     const numValue = parseInt(value) || 0;
-    setUpdateQuantities(prev => ({
-      ...prev,
-      [itemId]: numValue
-    }));
+    console.log(`🔄 handleQuantityChange called: ${itemName} = ${value} (parsed: ${numValue})`);
+    
+    setUpdateQuantities(prev => {
+      const newState = {
+        ...prev,
+        [itemName]: numValue
+      };
+      console.log(`📝 Updated updateQuantities state:`, newState);
+      return newState;
+    });
   };
 
   const handleSubmitUpdate = async () => {
@@ -447,30 +509,137 @@ function App() {
     try {
       console.log('Submitting inventory updates...');
       
-      // Update all inventory items
-      for (const [itemId, newQty] of Object.entries(updateQuantities)) {
-        const item = inventoryItems.find(i => i && i.id === itemId);
-        if (item) {
-          await client.models.Inventory.update({
-            id: itemId,
-            qty: newQty,
-            rebuyQty: item.rebuyQty
-          });
-          console.log(`Updated ${itemId} to qty: ${newQty}`);
+      // Format the data as required JSON structure
+      const updatesData: { updates: { [key: string]: number } } = {
+        updates: {}
+      };
+      
+      // Collect all updates from the form
+      console.log('=== COLLECTING FORM DATA ===');
+      console.log('Raw updateQuantities:', updateQuantities);
+      console.log('Current apiInventoryItems:', apiInventoryItems);
+      console.log('Comparing values:');
+      
+      // Compare what we're sending vs what the API currently has
+      for (const [itemName, newQty] of Object.entries(updateQuantities)) {
+        const apiItem = apiInventoryItems.find(i => i.Item === itemName);
+        const currentQty = apiItem ? apiItem.Qty : 'N/A';
+        console.log(`${itemName}: Current API: ${currentQty} → New Form: ${newQty}`);
+      }
+      
+      for (const [itemName, newQty] of Object.entries(updateQuantities)) {
+        console.log(`Processing item: ${itemName}, new quantity: ${newQty}`);
+        if (newQty !== undefined && newQty !== null && newQty >= 0) {
+          updatesData.updates[itemName] = newQty;
+          console.log(`Added to updates: ${itemName} = ${newQty}`);
+        } else {
+          console.log(`Skipped item ${itemName}: invalid quantity ${newQty}`);
         }
       }
       
-      // Refresh the last update info from the API
+      console.log('Final updatesData object:', updatesData);
+      console.log('================================');
+      
+      // Compare with working format
+      const workingFormat = {
+        updates: {
+          "Water": 22,
+          "Coffee": 33,
+          "Olive Oil": 44,
+          "Wine": 55
+        }
+      };
+      
+      console.log('=== COMPARISON WITH WORKING FORMAT ===');
+      console.log('Our format:', updatesData);
+      console.log('Working format:', workingFormat);
+      console.log('JSON strings match?', JSON.stringify(updatesData) === JSON.stringify(workingFormat));
+      console.log('Our JSON length:', JSON.stringify(updatesData).length);
+      console.log('Working JSON length:', JSON.stringify(workingFormat).length);
+      console.log('=====================================');
+      
+      console.log('=== INVENTORY UPDATE REQUEST ===');
+      console.log('JSON being sent to API:');
+      console.log(JSON.stringify(updatesData, null, 2));
+      console.log('Raw JSON string length:', JSON.stringify(updatesData).length);
+      console.log('JSON string bytes:', new TextEncoder().encode(JSON.stringify(updatesData)));
+      console.log('API endpoint:', 'https://tflcapk4oltm7lkggzbi3zlidu0tvvka.lambda-url.eu-central-1.on.aws/');
+      console.log('Request method: POST');
+      console.log('Request headers:', { 'Content-Type': 'application/json' });
+      console.log('================================');
+      
+      // Send the updates to the API
+      const response = await fetch('https://tflcapk4oltm7lkggzbi3zlidu0tvvka.lambda-url.eu-central-1.on.aws/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatesData)
+      });
+      
+      console.log('=== API RESPONSE ===');
+      console.log('Response status:', response.status);
+      console.log('Response status text:', response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Response body (parsed JSON):');
+      console.log(JSON.stringify(result, null, 2));
+      console.log('==============================');
+      
+      // Check if the API actually processed the updates
+      if (result.currentInventoryItemsUpdated === 0) {
+        console.warn('⚠️ WARNING: API reports 0 inventory items were updated!');
+        console.warn('This might indicate an issue with the data format or API processing');
+        console.warn('Check if the API expects a different data structure');
+      } else {
+        console.log(`✅ API successfully updated ${result.currentInventoryItemsUpdated} inventory items`);
+      }
+      
+      // Wait a moment for the API to process the updates
+      console.log('Waiting for API to process updates...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Refresh all data after successful update
+      console.log('=== REFRESHING DATA AFTER UPDATE ===');
+      console.log('1. Loading last update info...');
       await loadLastUpdateInfo();
       
-      // Refresh inventory data
-      await fetchInventoryData();
+      console.log('2. Refreshing API inventory data for update form...');
+      await fetchApiInventoryDataForUpdate();
+      
+      console.log('3. Refreshing main inventory view...');
+      await fetchApiInventoryData();
+      
+      console.log('4. Refreshing bookings count...');
+      await fetchBookingsCount();
+      
+      console.log('All data refresh completed');
+      console.log('====================================');
+      
+      // Log the final state to verify if data was updated
+      console.log('=== FINAL STATE VERIFICATION ===');
+      console.log('Current apiInventoryItems state:', apiInventoryItems);
+      console.log('Current updateQuantities state:', updateQuantities);
+      console.log('================================');
       
       // Close the update form
       setShowUpdateForm(false);
       
+      // Show success message
+      const message = result.currentInventoryItemsUpdated > 0 
+        ? `Inventory update completed successfully!\n\nUpdated ${result.currentInventoryItemsUpdated} items.\n\nThe changes have been applied to the database.`
+        : `Inventory update request sent successfully!\n\nHowever, the API reports that 0 items were updated.\n\nThis might indicate:\n- The data format is not what the API expects\n- The API is not processing the updates correctly\n- There's a mismatch between item names\n\nPlease check the console logs for more details.\n\nYou can use the "Test API" button to test with simple data.`;
+      
+      alert(message);
+      
     } catch (error) {
       console.error('Error submitting updates:', error);
+      alert('Error updating inventory. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -947,9 +1116,26 @@ function App() {
                         <i className="bi-pencil-square text-dark fs-4" style={{ lineHeight: '1' }}></i>
                         <h3 className="mb-0">Update</h3>
                       </div>
-                      <button className="btn btn-outline-secondary" onClick={() => setShowUpdateForm(false)}>
-                        <i className="bi-arrow-left me-1"></i>Back
-                      </button>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-outline-primary" 
+                          onClick={fetchApiInventoryDataForUpdate}
+                          disabled={loading}
+                        >
+                          <i className="bi-arrow-clockwise me-1"></i>
+                          {loading ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                        <button className="btn btn-outline-secondary" onClick={async () => {
+                          setShowUpdateForm(false);
+                          // Refresh data when going back to main view
+                          await Promise.all([
+                            fetchApiInventoryData(),
+                            fetchBookingsCount()
+                          ]);
+                        }}>
+                          <i className="bi-arrow-left me-1"></i>Back
+                        </button>
+                      </div>
                     </div>
                     
                     {loading ? (
@@ -959,6 +1145,20 @@ function App() {
                         </div>
                         <p className="mt-2">Loading inventory data...</p>
                       </div>
+                    ) : apiError ? (
+                      <div className="text-center py-4">
+                        <div className="alert alert-danger">
+                          <h5>Error loading inventory data</h5>
+                          <p className="mb-2">{apiError}</p>
+                          <button 
+                            className="btn btn-outline-danger" 
+                            onClick={fetchApiInventoryDataForUpdate}
+                          >
+                            <i className="bi-arrow-clockwise me-1"></i>
+                            Retry
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <div>
                         <div className="table-responsive">
@@ -966,33 +1166,43 @@ function App() {
                             <thead className="table-light">
                               <tr>
                                 <th className="text-start ps-3">Item</th>
-                                <th className="text-center">Current Qty</th>
                                 <th className="text-center">New Qty</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {inventoryItems.filter(item => item !== null).map((item) => (
-                                <tr key={item.id}>
-                                  <td className="text-start ps-3">
-                                    {item.id}
-                                  </td>
-                                  <td className="text-center">
-                                    {item.qty?.toLocaleString() || 0}
-                                  </td>
-                                  <td className="text-center">
-                                    <div className="d-flex justify-content-center">
-                                      <input
-                                        type="number"
-                                        className="form-control"
-                                        value={updateQuantities[item.id] || ''}
-                                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                                        min="0"
-                                        style={{ width: '100px' }}
-                                      />
-                                    </div>
+                              {apiInventoryItems.length > 0 ? (
+                                apiInventoryItems.map((item) => (
+                                  <tr key={item.Item}>
+                                    <td className="text-start ps-3">
+                                      {item.Item}
+                                    </td>
+                                    <td className="text-center">
+                                      <div className="d-flex justify-content-center">
+                                        <input
+                                          type="number"
+                                          className="form-control"
+                                          value={updateQuantities[item.Item] || ''}
+                                          onChange={(e) => handleQuantityChange(item.Item, e.target.value)}
+                                          min="0"
+                                          style={{ width: '100px' }}
+                                          onFocus={() => console.log(`🔍 Input focused: ${item.Item}, current value: ${updateQuantities[item.Item]}, API value: ${item.Qty}`)}
+                                        />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td colSpan={2} className="text-center text-muted py-5">
+                                    <i className="bi-inbox fs-1 d-block mb-3"></i>
+                                    <h5>No inventory items found</h5>
+                                    <p>No data available from the API at the moment.</p>
+                                    <small className="text-muted">
+                                      The system will automatically fetch data when you open this view.
+                                    </small>
                                   </td>
                                 </tr>
-                              ))}
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -1000,40 +1210,145 @@ function App() {
                         <div className="d-flex justify-content-between align-items-center mt-4">
                           <div className="text-muted">
                             <small>Make sure all quantities are filled before submitting</small>
+                            {submitting && (
+                              <div className="mt-2">
+                                <small className="text-info">
+                                  <i className="bi-info-circle me-1"></i>
+                                  Processing update... Please wait.
+                                </small>
+                              </div>
+                            )}
                           </div>
+                          
+                          {/* Debug button to show current form state */}
                           <button 
-                            className="btn" 
-                            onClick={handleSubmitUpdate}
-                            disabled={submitting || Object.keys(updateQuantities).length === 0}
-                            style={{ 
-                              backgroundColor: '#5a1f8a', 
-                              borderColor: '#5a1f8a',
-                              color: 'white',
-                              transition: 'all 0.2s ease-in-out'
-                            }}
-                            onMouseOver={(e) => {
-                              const target = e.target as HTMLButtonElement;
-                              target.style.backgroundColor = '#380a5e';
-                              target.style.borderColor = '#380a5e';
-                            }}
-                            onMouseOut={(e) => {
-                              const target = e.target as HTMLButtonElement;
-                              target.style.backgroundColor = '#5a1f8a';
-                              target.style.borderColor = '#5a1f8a';
+                            type="button"
+                            className="btn btn-outline-info btn-sm"
+                            onClick={() => {
+                              console.log('=== DEBUG: CURRENT FORM STATE ===');
+                              console.log('updateQuantities:', updateQuantities);
+                              console.log('apiInventoryItems:', apiInventoryItems);
+                              console.log('Form values vs API values:');
+                              apiInventoryItems.forEach(item => {
+                                const formValue = updateQuantities[item.Item];
+                                console.log(`${item.Item}: API=${item.Qty}, Form=${formValue}, Changed=${formValue !== item.Qty}`);
+                              });
+                              console.log('====================================');
                             }}
                           >
-                            {submitting ? (
-                              <>
-                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                Updating...
-                              </>
-                            ) : (
-                              <>
-                                <i className="bi-check-circle me-2"></i>
-                                Submit Update
-                              </>
-                            )}
+                            <i className="bi-bug me-1"></i>
+                            Debug Form State
                           </button>
+                          
+                          {/* Test API with simple data */}
+                          <button 
+                            type="button"
+                            className="btn btn-outline-warning btn-sm"
+                            onClick={async () => {
+                              console.log('=== TESTING API WITH SIMPLE DATA ===');
+                              const testData = {
+                                updates: {
+                                  "Wine": 999,
+                                  "Coffee": 888
+                                }
+                              };
+                              
+                              console.log('Sending test data:', testData);
+                              
+                              try {
+                                const response = await fetch('https://tflcapk4oltm7lkggzbi3zlidu0tvvka.lambda-url.eu-central-1.on.aws/', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify(testData)
+                                });
+                                
+                                const result = await response.json();
+                                console.log('Test API response:', result);
+                                console.log('Items updated:', result.currentInventoryItemsUpdated);
+                                console.log('==========================================');
+                              } catch (error) {
+                                console.error('Test API error:', error);
+                              }
+                            }}
+                          >
+                            <i className="bi-flask me-1"></i>
+                            Test API
+                          </button>
+                          
+                          {/* Test API with exact working format */}
+                          <button 
+                            type="button"
+                            className="btn btn-outline-success btn-sm"
+                            onClick={async () => {
+                              console.log('=== TESTING API WITH EXACT WORKING FORMAT ===');
+                              const workingData = {
+                                updates: {
+                                  "Water": 22,
+                                  "Coffee": 33,
+                                  "Olive Oil": 44,
+                                  "Wine": 55
+                                }
+                              };
+                              
+                              console.log('Sending working format data:', workingData);
+                              console.log('JSON string:', JSON.stringify(workingData));
+                              
+                              try {
+                                const response = await fetch('https://tflcapk4oltm7lkggzbi3zlidu0tvvka.lambda-url.eu-central-1.on.aws/', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify(workingData)
+                                });
+                                
+                                const result = await response.json();
+                                console.log('Working format API response:', result);
+                                console.log('Items updated:', result.currentInventoryItemsUpdated);
+                                console.log('==========================================');
+                              } catch (error) {
+                                console.error('Working format API error:', error);
+                              }
+                            }}
+                          >
+                            <i className="bi-check-circle me-1"></i>
+                            Test Working Format
+                          </button>
+                                                      <button 
+                              className="btn" 
+                              onClick={handleSubmitUpdate}
+                              disabled={submitting || Object.keys(updateQuantities).length === 0}
+                              style={{ 
+                                backgroundColor: '#5a1f8a', 
+                                borderColor: '#5a1f8a',
+                                color: 'white',
+                                transition: 'all 0.2s ease-in-out'
+                              }}
+                              onMouseOver={(e) => {
+                                const target = e.target as HTMLButtonElement;
+                                target.style.backgroundColor = '#380a5e';
+                                target.style.borderColor = '#380a5e';
+                              }}
+                              onMouseOut={(e) => {
+                                const target = e.target as HTMLButtonElement;
+                                target.style.backgroundColor = '#5a1f8a';
+                                target.style.borderColor = '#5a1f8a';
+                              }}
+                            >
+                              {submitting ? (
+                                <>
+                                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                  Processing Update...
+                                </>
+                              ) : (
+                                <>
+                                  <i className="bi-check-circle me-2"></i>
+                                  Submit Update
+                                </>
+                              )}
+                            </button>
                         </div>
                       </div>
                     )}
