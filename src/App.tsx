@@ -41,17 +41,7 @@ interface ApiInventoryItem {
   Description: string;
 }
 
-interface ApiResponse {
-  statusCode: number;
-  body: string;
-}
 
-interface ApiBody {
-  table: string;
-  count: number;
-  nextToken: string | null;
-  items: ApiInventoryItem[];
-}
 
 // Define the booking interface for the new API
 interface Booking {
@@ -61,6 +51,23 @@ interface Booking {
   listingNickname: string;
   nights: number;
   roomType: string;
+}
+
+// Define the expected usage interface for the new API
+interface ExpectedUsageItem {
+  Item: string;
+  ExactConsumption: number;
+  Tolerance: number;
+  AcceptedConsumption: number;
+}
+
+// Define the alarm interface for the new API
+interface AlarmItem {
+  Date: string;
+  Status: string;
+  Description: string;
+  Alarm: string;
+  ID: string;
 }
 
 
@@ -153,6 +160,8 @@ function App() {
   const [updateQuantities, setUpdateQuantities] = useState<{[key: string]: number}>({});
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showExpectedUsageTable, setShowExpectedUsageTable] = useState<boolean>(false);
+  const [showBookingsTable, setShowBookingsTable] = useState<boolean>(false);
+  const [showAlarmsTable, setShowAlarmsTable] = useState<boolean>(false);
   const [bookingsCount, setBookingsCount] = useState<number>(0);
   const [bookingsError, setBookingsError] = useState<string>('');
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -162,6 +171,12 @@ function App() {
   const [showRules, setShowRules] = useState<boolean>(false);
   const [apiInventoryItems, setApiInventoryItems] = useState<ApiInventoryItem[]>([]);
   const [apiError, setApiError] = useState<string>('');
+  const [expectedUsageItems, setExpectedUsageItems] = useState<ExpectedUsageItem[]>([]);
+  const [loadingExpectedUsage, setLoadingExpectedUsage] = useState<boolean>(false);
+  const [expectedUsageError, setExpectedUsageError] = useState<string>('');
+  const [alarmItems, setAlarmItems] = useState<AlarmItem[]>([]);
+  const [loadingAlarms, setLoadingAlarms] = useState<boolean>(false);
+  const [alarmsError, setAlarmsError] = useState<string>('');
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -279,12 +294,19 @@ function App() {
     console.log('handleInventoryCardClick called');
     setShowInventoryTable(true);
     setShowUpdateForm(false);
+    setShowBookingsTable(false);
+    setShowExpectedUsageTable(false);
+    setShowAlarmsTable(false);
+    setShowRules(false);
   };
 
   const handleUpdateCardClick = () => {
     setShowUpdateForm(true);
     setShowInventoryTable(false);
+    setShowBookingsTable(false);
     setShowExpectedUsageTable(false);
+    setShowAlarmsTable(false);
+    setShowRules(false);
     
     // Initialize update quantities with current values
     const initialQuantities: {[key: string]: number} = {};
@@ -296,13 +318,94 @@ function App() {
     setUpdateQuantities(initialQuantities);
   };
 
+  const handleBookingsCardClick = async () => {
+    setShowBookingsTable(true);
+    setShowInventoryTable(false);
+    setShowUpdateForm(false);
+    setShowExpectedUsageTable(false);
+    setShowAlarmsTable(false);
+    setShowRules(false);
+    setCurrentPage(1); // Reset to first page when opening
+    await fetchBookingsCount();
+    await fetchBookingsData();
+  };
+
   const handleExpectedUsageCardClick = async () => {
     setShowExpectedUsageTable(true);
     setShowInventoryTable(false);
     setShowUpdateForm(false);
+    setShowBookingsTable(false);
+    setShowAlarmsTable(false);
+    setShowRules(false);
     setCurrentPage(1); // Reset to first page when opening
-    await fetchBookingsCount();
-    await fetchBookingsData();
+    await fetchExpectedUsageData();
+  };
+
+  const handleAlarmsCardClick = async () => {
+    setShowAlarmsTable(true);
+    setShowInventoryTable(false);
+    setShowUpdateForm(false);
+    setShowBookingsTable(false);
+    setShowExpectedUsageTable(false);
+    setShowRules(false);
+    await fetchAlarmsData();
+  };
+
+  const fetchExpectedUsageData = async () => {
+    setLoadingExpectedUsage(true);
+    setExpectedUsageError('');
+    try {
+      console.log('Fetching expected usage data...');
+      const response = await fetch('https://li3uzmnpcgiyhwz6xazuy5hdnq0zamwg.lambda-url.eu-central-1.on.aws/');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Expected usage API response received:', data);
+      
+      if (data.items && Array.isArray(data.items)) {
+        setExpectedUsageItems(data.items);
+      } else {
+        throw new Error('Invalid data structure received from API');
+      }
+    } catch (error) {
+      console.error('Error fetching expected usage data:', error);
+      setExpectedUsageItems([]);
+      setExpectedUsageError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setLoadingExpectedUsage(false);
+    }
+  };
+
+  const fetchAlarmsData = async () => {
+    setLoadingAlarms(true);
+    setAlarmsError('');
+    try {
+      console.log('Fetching alarms data...');
+      const response = await fetch('https://bffybrv4gmr57qfkgvim7hrooa0wypjz.lambda-url.eu-central-1.on.aws/');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Alarms API response received:', data);
+      
+      // Check if the response has the expected structure
+      if (data.alarms && Array.isArray(data.alarms)) {
+        setAlarmItems(data.alarms);
+      } else {
+        throw new Error('Invalid data structure received from API');
+      }
+    } catch (error) {
+      console.error('Error fetching alarms data:', error);
+      setAlarmItems([]);
+      setAlarmsError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setLoadingAlarms(false);
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -563,7 +666,7 @@ function App() {
                 {(() => {
                   return null;
                 })()}
-                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable && !showRules && (
+                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable && !showBookingsTable && !showAlarmsTable && !showRules && (
                   <>
                     <div className="row">
                       <div className="col-md-4">
@@ -613,7 +716,7 @@ function App() {
                       </div>
                       
                       <div className="col-md-4">
-                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleExpectedUsageCardClick}>
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleBookingsCardClick}>
                           <div className="card-body d-flex flex-column">
                             <h5 className="mb-2"><i className="bi-calendar-check me-2"></i>Bookings</h5>
                             <p className="mb-2 small">Shows bookings since the last inventory update.</p>
@@ -635,7 +738,7 @@ function App() {
                     {/* Second row of cards */}
                     <div className="row mt-4">
                       <div className="col-md-4">
-                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleExpectedUsageCardClick}>
                           <div className="card-body d-flex flex-column">
                             <h5 className="mb-2"><i className="bi-graph-up me-2"></i>Expected Usage</h5>
                             <p className="mb-2 small">Calculates expected inventory consumption based on current bookings.</p>
@@ -647,7 +750,7 @@ function App() {
                               </div>
                             </div>
                             <div className="mt-2">
-                              <small className="text-primary">Coming soon →</small>
+                              <small className="text-primary">Click to view →</small>
                             </div>
                           </div>
                         </div>
@@ -674,12 +777,13 @@ function App() {
                       </div>
                       
                       <div className="col-md-4">
-                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={handleAlarmsCardClick}>
                           <div className="card-body d-flex flex-column">
                             <h5 className="mb-2"><i className="bi-exclamation-triangle me-2"></i>Alarms</h5>
                             <p className="mb-2 small">Get alerts for low stock and unusual consumption.</p>
                             <div className="mt-auto">
                               <p className="mb-0 small text-muted">Click to view alarm settings</p>
+                              <h6 className="small mt-2">Total alarms: {alarmItems.length}</h6>
                             </div>
                             <div className="mt-2">
                               <small className="text-primary">View alarms →</small>
@@ -938,6 +1042,118 @@ function App() {
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
+                        <i className="bi-graph-up text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Expected Usage Analysis</h3>
+                      </div>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-outline-secondary" 
+                          onClick={() => {
+                            fetchExpectedUsageData();
+                          }}
+                          disabled={loadingExpectedUsage}
+                        >
+                          <i className="bi-arrow-clockwise me-1"></i>
+                          {loadingExpectedUsage ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                        <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
+                          <i className="bi-arrow-left me-1"></i>Back
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {loadingExpectedUsage ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="mt-2">Loading expected usage data...</p>
+                      </div>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table">
+                          <thead className="table-light">
+                            <tr>
+                              <th className="text-start ps-3">Item</th>
+                              <th className="text-center">Exact Consumption</th>
+                              <th className="text-center">Tolerance</th>
+                              <th className="text-center">Accepted Consumption</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {expectedUsageItems.length > 0 ? (
+                              expectedUsageItems.map((item, index) => (
+                                <tr key={index}>
+                                  <td className="text-start ps-3">
+                                    <strong>{item.Item}</strong>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="badge bg-primary">{item.ExactConsumption}</span>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="badge bg-warning text-dark">{item.Tolerance}</span>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="badge bg-success">{item.AcceptedConsumption}</span>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={4} className="text-center text-muted py-5">
+                                  <i className="bi-graph-up fs-1 d-block mb-3"></i>
+                                  <h5>No expected usage data found</h5>
+                                  <p>No consumption data available at the moment.</p>
+                                  <small className="text-muted">
+                                    {expectedUsageError || 'The data is automatically fetched from the API when the page loads.'}
+                                  </small>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                        
+                        {expectedUsageItems.length > 0 && (
+                          <div className="mt-3 p-3 bg-light rounded">
+                            <div className="row text-center">
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
+                                  <i className="bi-graph-up fs-4"></i>
+                                  <div className="small">Total Items</div>
+                                  <strong>{expectedUsageItems.length}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
+                                  <i className="bi-calculator fs-4"></i>
+                                  <div className="small">Total Consumption</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.ExactConsumption, 0)}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
+                                  <i className="bi-shield-check fs-4"></i>
+                                  <div className="small">Total Tolerance</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.Tolerance, 0)}</strong>
+                                </div>
+                              </div>
+                              <div className="col-md-3">
+                                <div style={{ color: 'rgba(128, 0, 255, 0.8)' }}>
+                                  <i className="bi-check-circle fs-4"></i>
+                                  <div className="small">Total Accepted</div>
+                                  <strong>{expectedUsageItems.reduce((sum, item) => sum + item.AcceptedConsumption, 0)}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : currentFeature === 'inventory' && showBookingsTable ? (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div className="d-flex align-items-center gap-3">
                         <i className="bi-calendar-check text-dark fs-4" style={{ lineHeight: '1' }}></i>
                         <h3 className="mb-0">Bookings since last inventory</h3>
                       </div>
@@ -953,7 +1169,7 @@ function App() {
                           <i className="bi-arrow-clockwise me-1"></i>
                           {loadingBookings ? 'Refreshing...' : 'Refresh'}
                         </button>
-                        <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
+                        <button className="btn btn-outline-secondary" onClick={() => setShowBookingsTable(false)}>
                           <i className="bi-arrow-left me-1"></i>Back
                         </button>
                       </div>
@@ -1022,26 +1238,12 @@ function App() {
                                 </td>
                               </tr>
                             )}
-                            
-                            {/* Show message when current page has no items but there are total bookings */}
-                            {bookings.length > 0 && currentBookings.length === 0 && (
-                              <tr>
-                                <td colSpan={6} className="text-center text-muted py-5">
-                                  <i className="bi-exclamation-triangle fs-1 d-block mb-3"></i>
-                                  <h5>No items on this page</h5>
-                                  <p>There are {bookings.length} total bookings, but none on page {currentPage}.</p>
-                                  <small className="text-muted">
-                                    Try navigating to a different page or refresh the data.
-                                  </small>
-                                </td>
-                              </tr>
-                            )}
                           </tbody>
                         </table>
                         
                         {bookings.length > 0 && (
                           <>
-                            {/* Pagination Controls - Moved above totals */}
+                            {/* Pagination Controls */}
                             <div className="mt-3 d-flex justify-content-between align-items-center">
                               {/* Items per page selector */}
                               <div className="d-flex align-items-center gap-2">
@@ -1096,7 +1298,7 @@ function App() {
                               )}
                             </div>
 
-                            {/* Pagination Info - Moved below pagination controls */}
+                            {/* Pagination Info */}
                             <div className="mt-3 p-3 bg-light rounded">
                               <div className="row text-center">
                                 <div className="col-md-3">
@@ -1131,6 +1333,94 @@ function App() {
                             </div>
                           </>
                         )}
+                      </div>
+                    )}
+                  </div>
+                ) : currentFeature === 'inventory' && showAlarmsTable ? (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div className="d-flex align-items-center gap-3">
+                        <i className="bi-exclamation-triangle text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Alarms</h3>
+                      </div>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-outline-secondary" 
+                          onClick={() => {
+                            fetchAlarmsData();
+                          }}
+                          disabled={loadingAlarms}
+                        >
+                          <i className="bi-arrow-clockwise me-1"></i>
+                          {loadingAlarms ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                        <button className="btn btn-outline-secondary" onClick={() => setShowAlarmsTable(false)}>
+                          <i className="bi-arrow-left me-1"></i>Back
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {loadingAlarms ? (
+                      <div className="text-center py-4">
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p className="mt-2">Loading alarms data...</p>
+                      </div>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table">
+                          <thead className="table-light">
+                            <tr>
+                              <th className="text-start ps-3">Date</th>
+                              <th className="text-center">Alarm Type</th>
+                              <th className="text-start">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {alarmItems.length > 0 ? (
+                              alarmItems.map((alarm, index) => (
+                                <tr key={index}>
+                                  <td className="text-start ps-3">
+                                    {(() => {
+                                      try {
+                                        return new Date(alarm.Date).toLocaleDateString('en-GB');
+                                      } catch (error) {
+                                        console.error('Error parsing date:', alarm.Date, error);
+                                        return alarm.Date || 'Invalid Date';
+                                      }
+                                    })()}
+                                  </td>
+                                  <td className="text-center">
+                                    <span className={`badge ${
+                                      alarm.Alarm === 'Low Stock' ? 'bg-primary' :
+                                      alarm.Alarm === 'Consistency error' ? 'bg-warning text-dark' :
+                                      alarm.Alarm === 'Reorder' ? 'bg-danger' : 'bg-secondary'
+                                    }`}>
+                                      {alarm.Alarm}
+                                    </span>
+                                  </td>
+                                  <td className="text-start">
+                                    {alarm.Description}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={3} className="text-center text-muted py-5">
+                                  <i className="bi-exclamation-triangle fs-1 d-block mb-3"></i>
+                                  <h5>No alarms found</h5>
+                                  <p>No alarm data available at the moment.</p>
+                                  <small className="text-muted">
+                                    {alarmsError || 'The data is automatically fetched from the API when the page loads.'}
+                                  </small>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                        
+
                       </div>
                     )}
                   </div>
