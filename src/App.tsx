@@ -31,6 +31,28 @@ interface InventoryItem {
   updatedAt?: string;
 }
 
+// Define the new API response interface
+interface ApiInventoryItem {
+  Item: string;
+  Qty: number;
+  RebuyQty: number;
+  Status: string;
+  Tolerance: number;
+  Description: string;
+}
+
+interface ApiResponse {
+  statusCode: number;
+  body: string;
+}
+
+interface ApiBody {
+  table: string;
+  count: number;
+  nextToken: string | null;
+  items: ApiInventoryItem[];
+}
+
 // Define the booking interface for the new API
 interface Booking {
   bookingId: string;
@@ -135,6 +157,11 @@ function App() {
   const [bookingsError, setBookingsError] = useState<string>('');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loadingBookings, setLoadingBookings] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+  const [showRules, setShowRules] = useState<boolean>(false);
+  const [apiInventoryItems, setApiInventoryItems] = useState<ApiInventoryItem[]>([]);
+  const [apiError, setApiError] = useState<string>('');
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -146,6 +173,12 @@ function App() {
 
   const stockStatus = getStockStatus();
 
+  // Pagination calculations
+  const totalPages = Math.ceil(bookings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentBookings = bookings.slice(startIndex, endIndex);
+
   // Load inventory data when component mounts
   useEffect(() => {
     fetchInventoryData();
@@ -155,7 +188,7 @@ function App() {
 
   useEffect(() => {
     if (showInventoryTable) {
-      fetchInventoryData();
+      fetchApiInventoryData();
     }
   }, [showInventoryTable]);
 
@@ -184,6 +217,39 @@ function App() {
     } catch (error) {
       console.error('Error fetching inventory data:', error);
       setInventoryItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchApiInventoryData = async () => {
+    setLoading(true);
+    setApiError('');
+    try {
+      console.log('Fetching API inventory data...');
+      const response = await fetch('https://7a4ejsev6lliagmuiawmoki2va0iculn.lambda-url.eu-central-1.on.aws/');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('API response received:', data);
+      
+      // Check if the response has the expected structure
+      if (data && data.items && Array.isArray(data.items)) {
+        console.log('Setting inventory items:', data.items);
+        setApiInventoryItems(data.items);
+        setApiError('');
+      } else {
+        console.error('No items array found in response');
+        setApiInventoryItems([]);
+        setApiError('No items array found in response');
+      }
+    } catch (error) {
+      console.error('Error fetching API inventory data:', error);
+      setApiInventoryItems([]);
+      setApiError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
@@ -234,8 +300,35 @@ function App() {
     setShowExpectedUsageTable(true);
     setShowInventoryTable(false);
     setShowUpdateForm(false);
+    setCurrentPage(1); // Reset to first page when opening
     await fetchBookingsCount();
     await fetchBookingsData();
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of table
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+    console.log(`Changed items per page to ${newItemsPerPage}`);
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
@@ -324,7 +417,7 @@ function App() {
 
   const fetchBookingsCount = async () => {
     try {
-      const response = await fetch('https://objrydrxxmvup6a6fbnprxugzm0gbapz.lambda-url.eu-central-1.on.aws/', {
+      const response = await fetch('https://t5lpzd66lrmg62glr3huobvvbq0ixpnb.lambda-url.eu-central-1.on.aws/', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -340,9 +433,13 @@ function App() {
 
       const data = await response.json();
       
-      if (data.reservationsCount !== undefined) {
-        setBookingsCount(data.reservationsCount);
+      console.log('Bookings count response:', data);
+      
+      // Use the count from the response
+      if (data.count !== undefined) {
+        setBookingsCount(data.count);
         setBookingsError('');
+        console.log(`Successfully loaded bookings count: ${data.count}`);
       } else {
         throw new Error('Invalid response format');
       }
@@ -372,11 +469,11 @@ function App() {
 
       const data = await response.json();
       
-      // Parse the body string to get the actual data
-      const bodyData = JSON.parse(data.body);
+      console.log('Raw response data:', data);
       
+      // The response is already parsed JSON, no need to parse data.body
       // Extract bookings from the items array and map the field names
-      const bookingsData = (bodyData.items || []).map((item: any) => ({
+      const bookingsData = (data.items || []).map((item: any) => ({
         bookingId: item.BookingID,
         checkinDate: item.CheckinDate,
         guests: item.Guests,
@@ -385,8 +482,11 @@ function App() {
         roomType: item.RoomType
       }));
       
+      console.log('Processed bookings data:', bookingsData);
+      
       setBookings(bookingsData);
       setBookingsError('');
+      console.log(`Successfully loaded ${bookingsData.length} bookings`);
     } catch (error) {
       console.error('Error fetching bookings data:', error);
       setBookingsError('Error fetching bookings data');
@@ -463,7 +563,7 @@ function App() {
                 {(() => {
                   return null;
                 })()}
-                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable && (
+                {currentFeature === 'inventory' && !showInventoryTable && !showUpdateForm && !showExpectedUsageTable && !showRules && (
                   <>
                     <div className="row">
                       <div className="col-md-4">
@@ -554,19 +654,17 @@ function App() {
                       </div>
                       
                       <div className="col-md-4">
-                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
+                        <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }} onClick={() => {
+                          setShowRules(true);
+                          setShowInventoryTable(false);
+                          setShowUpdateForm(false);
+                          setShowExpectedUsageTable(false);
+                        }}>
                           <div className="card-body d-flex flex-column">
                             <h5 className="mb-2"><i className="bi-gear me-2"></i>Rules</h5>
                             <p className="mb-2 small">Business logic for inventory consumption calculations.</p>
                             <div className="mt-auto">
-                              <div className="alert alert-warning py-2">
-                                <small>
-                                  <strong>Logic:</strong><br/>
-                                  • Wine: 1/2 guests/night<br/>
-                                  • Water: 2/guest/night<br/>
-                                  • Coffee: 2/guest/night
-                                </small>
-                              </div>
+                              <p className="mb-0 small text-muted">Click to view detailed rules</p>
                             </div>
                             <div className="mt-2">
                               <small className="text-primary">View rules →</small>
@@ -578,17 +676,13 @@ function App() {
                       <div className="col-md-4">
                         <div className="card h-100 inventory-card" style={{ cursor: 'pointer', maxHeight: '40vh', fontSize: '0.9em' }}>
                           <div className="card-body d-flex flex-column">
-                            <h5 className="mb-2"><i className="bi-chart-line me-2"></i>Analytics</h5>
-                            <p className="mb-2 small">Performance metrics and inventory insights.</p>
+                            <h5 className="mb-2"><i className="bi-exclamation-triangle me-2"></i>Alarms</h5>
+                            <p className="mb-2 small">Get alerts for low stock and unusual consumption.</p>
                             <div className="mt-auto">
-                              <div className="alert alert-success py-2">
-                                <small>
-                                  <strong>Features:</strong> Track consumption patterns and optimize stock levels.
-                                </small>
-                              </div>
+                              <p className="mb-0 small text-muted">Click to view alarm settings</p>
                             </div>
                             <div className="mt-2">
-                              <small className="text-primary">View analytics →</small>
+                              <small className="text-primary">View alarms →</small>
                             </div>
                           </div>
                         </div>
@@ -604,9 +698,19 @@ function App() {
                         <i className="bi-database text-dark fs-4" style={{ lineHeight: '1' }}></i>
                         <h3 className="mb-0">Stock</h3>
                       </div>
-                      <button className="btn btn-outline-secondary" onClick={() => setShowInventoryTable(false)}>
-                        <i className="bi-arrow-left me-1"></i>Back
-                      </button>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-outline-primary" 
+                          onClick={fetchApiInventoryData}
+                          disabled={loading}
+                        >
+                          <i className="bi-arrow-clockwise me-1"></i>
+                          {loading ? 'Loading...' : 'Refresh'}
+                        </button>
+                        <button className="btn btn-outline-secondary" onClick={() => setShowInventoryTable(false)}>
+                          <i className="bi-arrow-left me-1"></i>Back
+                        </button>
+                      </div>
                     </div>
                     
                     {loading ? (
@@ -616,62 +720,85 @@ function App() {
                         </div>
                         <p className="mt-2">Loading inventory data...</p>
                       </div>
+                    ) : apiError ? (
+                      <div className="text-center py-4">
+                        <div className="alert alert-danger">
+                          <h5>Error loading inventory data</h5>
+                          <p className="mb-2">{apiError}</p>
+                          <button 
+                            className="btn btn-outline-danger" 
+                            onClick={fetchApiInventoryData}
+                          >
+                            <i className="bi-arrow-clockwise me-1"></i>
+                            Retry
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="table-responsive">
                         <table className="table">
                           <thead className="table-light">
                             <tr>
                               <th className="text-start ps-3">Item</th>
-                              <th className="text-center">Quantity</th>
-                              <th className="text-center">Rebuy Qty</th>
+                              <th className="text-start">Description</th>
+                              <th className="text-center">Qty</th>
                               <th className="text-center">Status</th>
+                              <th className="text-center">Rebuy Qty</th>
+                              <th className="text-center">Tolerance</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {inventoryItems.length > 0 ? (
-                              inventoryItems.filter(item => item !== null).map((item) => (
-                                <tr key={item.id}>
+                            {apiInventoryItems.length > 0 ? (
+                              apiInventoryItems.map((item) => (
+                                <tr key={item.Item}>
                                   <td className="text-start ps-3">
-                                    {item.id}
+                                    {item.Item}
+                                  </td>
+                                  <td className="text-start">
+                                    {item.Description}
                                   </td>
                                   <td className="text-center">
-                                    {item.qty?.toLocaleString() || 0}
+                                    {item.Qty?.toLocaleString() || 0}
                                   </td>
                                   <td className="text-center">
-                                    {item.rebuyQty?.toLocaleString() || 0}
-                                  </td>
-                                  <td className="text-center">
-                                    {item.qty && item.rebuyQty ? (
-                                      item.qty <= item.rebuyQty ? (
-                                        <span className="badge" style={{ backgroundColor: 'rgba(231, 76, 60, 0.8)', color: 'white', minWidth: '100px' }}>
-                                          <i className="bi-x-circle me-1"></i>
-                                          Reorder
-                                        </span>
-                                      ) : item.qty > item.rebuyQty && item.qty < item.rebuyQty * 1.25 ? (
-                                        <span className="badge" style={{ backgroundColor: 'rgba(243, 156, 18, 0.8)', color: 'white', minWidth: '100px' }}>
-                                          <i className="bi-exclamation-triangle me-1"></i>
-                                          Low Stock
-                                        </span>
-                                      ) : (
-                                        <span className="badge" style={{ backgroundColor: 'rgba(39, 174, 96, 0.8)', color: 'white', minWidth: '100px' }}>
-                                          <i className="bi-check-circle me-1"></i>
-                                          Healthy
-                                        </span>
-                                      )
+                                    {item.Status === 'Healthy' ? (
+                                      <span className="badge" style={{ backgroundColor: 'rgba(39, 174, 96, 0.8)', color: 'white', minWidth: '100px' }}>
+                                        <i className="bi-check-circle me-1"></i>
+                                        Healthy
+                                      </span>
+                                    ) : item.Status === 'Low Stock' ? (
+                                      <span className="badge" style={{ backgroundColor: 'rgba(243, 156, 18, 0.8)', color: 'white', minWidth: '100px' }}>
+                                        <i className="bi-exclamation-triangle me-1"></i>
+                                        Low Stock
+                                      </span>
+                                    ) : item.Status === 'Reorder' ? (
+                                      <span className="badge" style={{ backgroundColor: 'rgba(231, 76, 60, 0.8)', color: 'white', minWidth: '100px' }}>
+                                        <i className="bi-x-circle me-1"></i>
+                                        Reorder
+                                      </span>
                                     ) : (
-                                      <span className="text-muted">-</span>
+                                      <span className="badge" style={{ backgroundColor: 'rgba(128, 128, 128, 0.8)', color: 'white', minWidth: '100px' }}>
+                                        <i className="bi-question-circle me-1"></i>
+                                        {item.Status}
+                                      </span>
                                     )}
+                                  </td>
+                                  <td className="text-center">
+                                    {item.RebuyQty?.toLocaleString() || 0}
+                                  </td>
+                                  <td className="text-center">
+                                    {item.Tolerance?.toLocaleString() || 0}
                                   </td>
                                 </tr>
                               ))
                             ) : (
                               <tr>
-                                <td colSpan={4} className="text-center text-muted py-5">
+                                <td colSpan={6} className="text-center text-muted py-5">
                                   <i className="bi-inbox fs-1 d-block mb-3"></i>
                                   <h5>No inventory items found</h5>
-                                  <p>Add some items to DynamoDB to see them here.</p>
+                                  <p>No data available from the API at the moment.</p>
                                   <small className="text-muted">
-                                    Make sure you have deployed the backend and added items to the Inventory table.
+                                    The system will automatically fetch data when you open this view.
                                   </small>
                                 </td>
                               </tr>
@@ -679,28 +806,28 @@ function App() {
                           </tbody>
                         </table>
                         
-                        {inventoryItems.length > 0 && (
+                        {apiInventoryItems.length > 0 && (
                           <div className="mt-3 p-3 bg-light rounded">
                             <div className="row text-center">
                               <div className="col-md-4">
                                 <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
                                   <i className="bi-check-circle fs-4"></i>
                                   <div className="small">Healthy</div>
-                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty >= item.rebuyQty * 1.25).length}</strong>
+                                  <strong>{apiInventoryItems.filter(item => item.Status === 'Healthy').length}</strong>
                                 </div>
                               </div>
                               <div className="col-md-4">
                                 <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
                                   <i className="bi-exclamation-triangle fs-4"></i>
                                   <div className="small">Low Stock</div>
-                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty > item.rebuyQty && item.qty < item.rebuyQty * 1.25).length}</strong>
+                                  <strong>{apiInventoryItems.filter(item => item.Status === 'Low Stock').length}</strong>
                                 </div>
                               </div>
                               <div className="col-md-4">
                                 <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
                                   <i className="bi-x-circle fs-4"></i>
                                   <div className="small">Reorder Needed</div>
-                                  <strong>{inventoryItems.filter(item => item && item.qty && item.rebuyQty && item.qty <= item.rebuyQty).length}</strong>
+                                  <strong>{apiInventoryItems.filter(item => item.Status === 'Reorder').length}</strong>
                                 </div>
                               </div>
                             </div>
@@ -812,11 +939,24 @@ function App() {
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
                         <i className="bi-calendar-check text-dark fs-4" style={{ lineHeight: '1' }}></i>
-                        <h3 className="mb-0">Bookings</h3>
+                        <h3 className="mb-0">Bookings since last inventory</h3>
                       </div>
-                      <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
-                        <i className="bi-arrow-left me-1"></i>Back
-                      </button>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-outline-secondary" 
+                          onClick={() => {
+                            fetchBookingsData();
+                            fetchBookingsCount();
+                          }}
+                          disabled={loadingBookings}
+                        >
+                          <i className="bi-arrow-clockwise me-1"></i>
+                          {loadingBookings ? 'Refreshing...' : 'Refresh'}
+                        </button>
+                        <button className="btn btn-outline-secondary" onClick={() => setShowExpectedUsageTable(false)}>
+                          <i className="bi-arrow-left me-1"></i>Back
+                        </button>
+                      </div>
                     </div>
                     
                     {loadingBookings ? (
@@ -840,14 +980,21 @@ function App() {
                             </tr>
                           </thead>
                           <tbody>
-                            {bookings.length > 0 ? (
-                              bookings.map((booking) => (
+                            {currentBookings.length > 0 ? (
+                              currentBookings.map((booking) => (
                                 <tr key={booking.bookingId}>
                                   <td className="text-start ps-3">
                                     {booking.bookingId}
                                   </td>
                                   <td className="text-center">
-                                    {new Date(booking.checkinDate).toLocaleDateString('en-GB')}
+                                    {(() => {
+                                      try {
+                                        return new Date(booking.checkinDate).toLocaleDateString('en-GB');
+                                      } catch (error) {
+                                        console.error('Error parsing date:', booking.checkinDate, error);
+                                        return booking.checkinDate || 'Invalid Date';
+                                      }
+                                    })()}
                                   </td>
                                   <td className="text-center">
                                     {booking.guests}
@@ -875,38 +1022,204 @@ function App() {
                                 </td>
                               </tr>
                             )}
+                            
+                            {/* Show message when current page has no items but there are total bookings */}
+                            {bookings.length > 0 && currentBookings.length === 0 && (
+                              <tr>
+                                <td colSpan={6} className="text-center text-muted py-5">
+                                  <i className="bi-exclamation-triangle fs-1 d-block mb-3"></i>
+                                  <h5>No items on this page</h5>
+                                  <p>There are {bookings.length} total bookings, but none on page {currentPage}.</p>
+                                  <small className="text-muted">
+                                    Try navigating to a different page or refresh the data.
+                                  </small>
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                         
                         {bookings.length > 0 && (
-                          <div className="mt-3 p-3 bg-light rounded">
-                            <div className="row text-center">
-                              <div className="col-md-4">
-                                <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
-                                  <i className="bi-calendar-check fs-4"></i>
-                                  <div className="small">Total Bookings</div>
-                                  <strong>{bookings.length}</strong>
+                          <>
+                            {/* Pagination Controls - Moved above totals */}
+                            <div className="mt-3 d-flex justify-content-between align-items-center">
+                              {/* Items per page selector */}
+                              <div className="d-flex align-items-center gap-2">
+                                <label className="form-label mb-0 small">Items per page:</label>
+                                <select
+                                  className="form-select form-select-sm"
+                                  style={{ width: 'auto' }}
+                                  value={itemsPerPage}
+                                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                                >
+                                  <option value={5}>5</option>
+                                  <option value={10}>10</option>
+                                  <option value={20}>20</option>
+                                  <option value={50}>50</option>
+                                </select>
+                              </div>
+
+                              {/* Pagination navigation */}
+                              {totalPages > 1 && (
+                                <div className="d-flex align-items-center gap-3">
+                                  <button
+                                    className="btn btn-outline-secondary"
+                                    onClick={handlePreviousPage}
+                                    disabled={currentPage === 1}
+                                  >
+                                    <i className="bi-chevron-left me-1"></i>
+                                    Previous
+                                  </button>
+                                  
+                                  <div className="d-flex gap-1">
+                                    {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                                      <button
+                                        key={page}
+                                        className={`btn ${currentPage === page ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                                        onClick={() => handlePageChange(page)}
+                                        style={{ minWidth: '40px' }}
+                                      >
+                                        {page}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  
+                                  <button
+                                    className="btn btn-outline-secondary"
+                                    onClick={handleNextPage}
+                                    disabled={currentPage === totalPages}
+                                  >
+                                    Next
+                                    <i className="bi-chevron-right ms-1"></i>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Pagination Info - Moved below pagination controls */}
+                            <div className="mt-3 p-3 bg-light rounded">
+                              <div className="row text-center">
+                                <div className="col-md-3">
+                                  <div style={{ color: 'rgba(39, 174, 96, 0.8)' }}>
+                                    <i className="bi-calendar-check fs-4"></i>
+                                    <div className="small">Total Bookings</div>
+                                    <strong>{bookings.length}</strong>
+                                  </div>
+                                </div>
+                                <div className="col-md-3">
+                                  <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
+                                    <i className="bi-people fs-4"></i>
+                                    <div className="small">Total Guests</div>
+                                    <strong>{bookings.reduce((sum, booking) => sum + booking.guests, 0)}</strong>
+                                  </div>
+                                </div>
+                                <div className="col-md-3">
+                                  <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
+                                    <i className="bi-moon fs-4"></i>
+                                    <div className="small">Total Nights</div>
+                                    <strong>{bookings.reduce((sum, booking) => sum + booking.nights, 0)}</strong>
+                                  </div>
+                                </div>
+                                <div className="col-md-3">
+                                  <div style={{ color: 'rgba(128, 0, 255, 0.8)' }}>
+                                    <i className="bi-layers fs-4"></i>
+                                    <div className="small">Page {currentPage} of {totalPages}</div>
+                                    <strong>Showing {startIndex + 1}-{Math.min(endIndex, bookings.length)}</strong>
+                                  </div>
                                 </div>
                               </div>
-                              <div className="col-md-4">
-                                <div style={{ color: 'rgba(243, 156, 18, 0.8)' }}>
-                                  <i className="bi-people fs-4"></i>
-                                  <div className="small">Total Guests</div>
-                                  <strong>{bookings.reduce((sum, booking) => sum + booking.guests, 0)}</strong>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : currentFeature === 'inventory' && showRules ? (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div className="d-flex align-items-center gap-3">
+                        <i className="bi-gear text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Rules</h3>
+                      </div>
+                      <button className="btn btn-outline-secondary" onClick={() => setShowRules(false)}>
+                        <i className="bi-arrow-left me-1"></i>Back
+                      </button>
+                    </div>
+                    
+                    <div className="row">
+                      <div className="col-lg-8">
+                        <div className="card">
+                          <div className="card-body">
+                            <h5 className="card-title mb-4">Inventory Consumption Rules</h5>
+                            <p className="text-muted mb-4">
+                              The following rules are used in the calculation of expected usage for inventory management. 
+                              These rules determine how much inventory should be consumed based on guest bookings and property types.
+                            </p>
+                            
+                            <div className="list-group list-group-flush">
+                              <div className="list-group-item d-flex align-items-center py-3">
+                                <div className="me-3">
+                                  <i className="bi-droplet-fill text-primary fs-5"></i>
+                                </div>
+                                <div>
+                                  <h6 className="mb-1">Water Bottles</h6>
+                                  <p className="mb-0 text-muted">One water bottle per guest</p>
                                 </div>
                               </div>
-                              <div className="col-md-4">
-                                <div style={{ color: 'rgba(231, 76, 60, 0.8)' }}>
-                                  <i className="bi-moon fs-4"></i>
-                                  <div className="small">Total Nights</div>
-                                  <strong>{bookings.reduce((sum, booking) => sum + booking.nights, 0)}</strong>
+                              
+                              <div className="list-group-item d-flex align-items-center py-3">
+                                <div className="me-3">
+                                  <i className="bi-cup-hot-fill text-warning fs-5"></i>
+                                </div>
+                                <div>
+                                  <h6 className="mb-1">Wine Bottles</h6>
+                                  <p className="mb-0 text-muted">One wine bottle per reservation</p>
+                                </div>
+                              </div>
+                              
+                              <div className="list-group-item d-flex align-items-center py-3">
+                                <div className="me-3">
+                                  <i className="bi-cup-straw text-success fs-5"></i>
+                                </div>
+                                <div>
+                                  <h6 className="mb-1">Coffee Capsules</h6>
+                                  <p className="mb-0 text-muted">Two coffee capsules per guest</p>
+                                </div>
+                              </div>
+                              
+                              <div className="list-group-item d-flex align-items-center py-3">
+                                <div className="me-3">
+                                  <i className="bi-droplet-half text-info fs-5"></i>
+                                </div>
+                                <div>
+                                  <h6 className="mb-1">Olive Oil</h6>
+                                  <p className="mb-0 text-muted">One olive oil bottle if the property type is "Entire home/apt"</p>
                                 </div>
                               </div>
                             </div>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    )}
+                      
+                      <div className="col-lg-4">
+                        <div className="card">
+                          <div className="card-body">
+                            <h6 className="card-title">How it works</h6>
+                            <p className="small text-muted">
+                              These rules are automatically applied when calculating expected inventory consumption 
+                              based on your current bookings. The system will use guest counts, reservation details, 
+                              and property information to determine the appropriate inventory levels.
+                            </p>
+                            <div className="mt-3">
+                              <small className="text-muted">
+                                <i className="bi-info-circle me-1"></i>
+                                Rules are applied per night of stay
+                              </small>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : null}
               </div>
