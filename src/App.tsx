@@ -74,7 +74,7 @@ interface AlarmItem {
 const sections: Section[] = [
   {
     id: 'ops',
-    title: 'Operations',
+    title: 'Ops',
     features: [
       {
         id: 'inventory',
@@ -112,7 +112,7 @@ const sections: Section[] = [
   },
   {
     id: 'tech',
-    title: 'Technology',
+    title: 'Tech',
     features: [
       {
         id: 'data-warehouse',
@@ -126,7 +126,7 @@ const sections: Section[] = [
   },
   {
     id: 'marketing',
-    title: 'Marketing',
+    title: 'Grow',
     features: [
       {
         id: 'guest-crm',
@@ -143,6 +143,36 @@ const sections: Section[] = [
         content: 'Comprehensive CRM platform for managing client relationships, sales pipeline, and business opportunities. Includes lead management and sales forecasting.',
         functionality: 'This comprehensive CRM will manage client relationships, track sales opportunities, manage leads, provide sales forecasting, and enable customer lifecycle management for business clients.',
         icon: 'bi-briefcase'
+      }
+    ]
+  },
+  {
+    id: 'finance',
+    title: 'Finance',
+    features: [
+      {
+        id: 'accounting',
+        title: 'Accounting',
+        description: 'Financial accounting and bookkeeping system',
+        content: 'Comprehensive accounting system for managing financial records, transactions, and reporting. Features automated bookkeeping, invoice management, and financial analytics.',
+        functionality: 'This system will handle all financial transactions, generate invoices, manage accounts payable and receivable, provide financial reporting, and ensure compliance with accounting standards.',
+        icon: 'bi-calculator'
+      },
+      {
+        id: 'budgeting',
+        title: 'Budgeting',
+        description: 'Budget planning and expense management',
+        content: 'Advanced budgeting system for planning, tracking, and managing financial resources. Includes budget forecasting, expense tracking, and financial planning tools.',
+        functionality: 'This module will enable budget creation, expense tracking, financial forecasting, variance analysis, and provide insights for better financial decision making.',
+        icon: 'bi-graph-up-arrow'
+      },
+      {
+        id: 'payroll',
+        title: 'Payroll',
+        description: 'Employee payroll and benefits management',
+        content: 'Complete payroll management system for processing employee salaries, benefits, and tax calculations. Features automated payroll processing and compliance reporting.',
+        functionality: 'This system will handle employee salary calculations, tax deductions, benefits management, payroll processing, and generate all necessary payroll reports and tax documents.',
+        icon: 'bi-credit-card'
       }
     ]
   }
@@ -177,6 +207,9 @@ function App() {
   const [alarmItems, setAlarmItems] = useState<AlarmItem[]>([]);
   const [loadingAlarms, setLoadingAlarms] = useState<boolean>(false);
   const [alarmsError, setAlarmsError] = useState<string>('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   // Calculate stock status for preview
   const getStockStatus = () => {
@@ -211,6 +244,8 @@ function App() {
     if (currentFeature === 'inventory') {
       loadLastUpdateInfo();
       fetchBookingsCount();
+      // Llamada automática a la nueva API para actualizar información de bookings
+      fetchBookingsData();
     }
   }, [currentFeature]);
 
@@ -338,18 +373,30 @@ function App() {
     return section?.features.find(f => f.id === currentFeature);
   };
 
-  const handleSectionChange = (sectionId: string) => {
-    setCurrentSection(sectionId);
-    const section = sections.find(s => s.id === sectionId);
-    if (section && section.features.length > 0) {
-      setCurrentFeature(section.features[0].id);
-    }
-    setShowInventoryTable(false);
-  };
 
   const handleFeatureChange = (featureId: string) => {
     setCurrentFeature(featureId);
     setShowInventoryTable(false);
+    setIsSidebarOpen(false); // Cerrar sidebar móvil al seleccionar feature
+  };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSection(expandedSection === sectionId ? null : sectionId);
+  };
+
+  const handleFeatureSelect = (sectionId: string, featureId: string) => {
+    setCurrentSection(sectionId);
+    setCurrentFeature(featureId);
+    setIsMobileMenuOpen(false);
+    setExpandedSection(null);
   };
 
   const handleInventoryCardClick = () => {
@@ -689,7 +736,7 @@ function App() {
 
   const fetchBookingsCount = async () => {
     try {
-      const response = await fetch('https://t5lpzd66lrmg62glr3huobvvbq0ixpnb.lambda-url.eu-central-1.on.aws/', {
+      const response = await fetch('https://a2hytc4pdf3gqsfdosgukc3l3u0tgukb.lambda-url.eu-central-1.on.aws/', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -707,11 +754,11 @@ function App() {
       
       console.log('Bookings count response:', data);
       
-      // Use the count from the response
-      if (data.count !== undefined) {
-        setBookingsCount(data.count);
+      // Use the totalReturned from the response (new API structure)
+      if (data.totalReturned !== undefined) {
+        setBookingsCount(data.totalReturned);
         setBookingsError('');
-        console.log(`Successfully loaded bookings count: ${data.count}`);
+        console.log(`Successfully loaded bookings count: ${data.totalReturned}`);
       } else {
         throw new Error('Invalid response format');
       }
@@ -725,7 +772,7 @@ function App() {
   const fetchBookingsData = async () => {
     setLoadingBookings(true);
     try {
-      const response = await fetch('https://t5lpzd66lrmg62glr3huobvvbq0ixpnb.lambda-url.eu-central-1.on.aws/', {
+      const response = await fetch('https://a2hytc4pdf3gqsfdosgukc3l3u0tgukb.lambda-url.eu-central-1.on.aws/', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -744,8 +791,8 @@ function App() {
       console.log('Raw response data:', data);
       
       // The response is already parsed JSON, no need to parse data.body
-      // Extract bookings from the items array and map the field names
-      const bookingsData = (data.items || []).map((item: any) => ({
+      // Extract bookings from the bookings array (new API structure) and map the field names
+      const bookingsData = (data.bookings || []).map((item: any) => ({
         bookingId: item.BookingID,
         checkinDate: item.CheckinDate,
         guests: item.Guests,
@@ -777,37 +824,129 @@ function App() {
             <img src="/vite.svg" alt="noc.ai Logo" className="me-2" style={{ width: '24px', height: '24px' }} />
             noc.ai
           </a>
-          <ul className="nav-links">
+          
+          {/* Desktop Navigation - Hidden, using hamburger menu for all screen sizes */}
+          <ul className="nav-links d-none">
             {sections.map((section) => (
-              <li key={section.id}>
-                <a
-                  href="#"
-                  className={currentSection === section.id ? 'active' : ''}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleSectionChange(section.id);
-                  }}
+              <li key={section.id} className="nav-section">
+                <div 
+                  className="nav-section-header"
+                  onClick={() => toggleSection(section.id)}
                 >
-                  {section.title}
-                </a>
+                  <span className="nav-section-title">{section.title}</span>
+                  <i className={`bi ${expandedSection === section.id ? 'bi-chevron-up' : 'bi-chevron-down'} nav-chevron`}></i>
+                </div>
+                
+                {expandedSection === section.id && (
+                  <ul className="nav-features">
+                    {section.features.map((feature) => (
+                      <li key={feature.id}>
+                        <a
+                          href="#"
+                          className={currentFeature === feature.id ? 'active' : ''}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleFeatureSelect(section.id, feature.id);
+                          }}
+                        >
+                          <i className={`${feature.icon} me-2`}></i>
+                          {feature.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>
         </div>
+        
         <div className="d-flex align-items-center gap-3">
-          <span className="text-white small">
+          <span className="text-white small d-none d-sm-inline">
             {user?.username || 'User'}
           </span>
-          <button className="btn btn-link text-white p-0" onClick={signOut}>
-            <i className="bi-box-arrow-right fs-5"></i>
+          {/* Show logout button only when menu is closed */}
+          {!isMobileMenuOpen && (
+            <button className="btn btn-link text-white p-0" onClick={signOut}>
+              <i className="bi-box-arrow-right fs-5"></i>
+            </button>
+          )}
+          {/* Hamburger menu button - always in top right corner */}
+          <button 
+            className="btn btn-link text-white p-0" 
+            onClick={toggleMobileMenu}
+            style={{ fontSize: '1.5rem' }}
+          >
+            <i className={`bi ${isMobileMenuOpen ? 'bi-x' : 'bi-list'}`}></i>
           </button>
         </div>
       </nav>
 
+      {/* Full Screen Navigation Menu - All screen sizes */}
+      {isMobileMenuOpen && (
+        <div className="mobile-nav-fullscreen">
+          {/* Header with close button only */}
+          <div className="mobile-nav-header">
+            <div></div> {/* Empty div for spacing */}
+            <button 
+              className="btn btn-link text-white p-0" 
+              onClick={toggleMobileMenu}
+              style={{ fontSize: '1.5rem' }}
+            >
+              <i className="bi bi-x"></i>
+            </button>
+          </div>
+          
+          {/* Centered navigation options */}
+          <div className="mobile-nav-content">
+            <ul className="mobile-nav-links-fullscreen">
+              {sections.map((section) => (
+                <li key={section.id} className="mobile-nav-section">
+                  <div 
+                    className="mobile-nav-section-header"
+                    onClick={() => toggleSection(section.id)}
+                  >
+                    <span className="mobile-nav-section-title">{section.title}</span>
+                  </div>
+                  
+                  {expandedSection === section.id && (
+                    <ul className="mobile-nav-features">
+                      {section.features.map((feature) => (
+                        <li key={feature.id}>
+                          <a
+                            href="#"
+                            className={currentFeature === feature.id ? 'active' : ''}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleFeatureSelect(section.id, feature.id);
+                            }}
+                          >
+                            <i className={`${feature.icon} me-2`}></i>
+                            {feature.title}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="main-content">
+        {/* Mobile Sidebar Toggle Button */}
+        <button 
+          className="sidebar-toggle-btn d-lg-none"
+          onClick={toggleSidebar}
+        >
+          <i className="bi bi-chevron-right"></i>
+        </button>
+
         {/* Sidebar */}
-        <aside className="sidebar position-fixed" style={{ top: '60px', left: 0, width: '250px', height: 'calc(100vh - 60px)', overflowY: 'auto', zIndex: 1020 }}>
+        <aside className={`sidebar position-fixed ${isSidebarOpen ? 'sidebar-open' : ''}`} style={{ top: '60px', left: 0, width: '250px', height: 'calc(100vh - 60px)', overflowY: 'auto', zIndex: 1020 }}>
           {getCurrentSection() && (
             <div>
               {/* <div className="sidebar-title">{getCurrentSection()?.title}</div> */}
@@ -824,6 +963,14 @@ function App() {
             </div>
           )}
         </aside>
+
+        {/* Mobile Sidebar Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="sidebar-overlay d-lg-none"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
 
         {/* Content Area */}
         <main className="content-area" style={{ marginLeft: '250px' }}>
