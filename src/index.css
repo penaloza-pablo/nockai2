@@ -413,6 +413,51 @@ body {
   font-style: italic;
 }
 
+/* Desktop quantity controls */
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.quantity-controls .btn {
+  min-width: 40px;
+  height: 40px;
+  border-radius: 0.375rem; /* Square buttons */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.quantity-controls input {
+  width: 80px;
+  height: 40px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid #dee2e6;
+}
+
+.quantity-controls input:focus {
+  border-color: var(--nokai-primary);
+  box-shadow: 0 0 0 0.2rem rgba(90, 31, 138, 0.25);
+}
+
+/* Remove number input arrows */
+.quantity-controls input[type="number"]::-webkit-outer-spin-button,
+.quantity-controls input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.quantity-controls input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Lists */
 ul {
   list-style: none;
@@ -875,5 +920,38 @@ ul li:hover {
   .btn {
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem;
+  }
+  
+  /* Mobile-friendly quantity controls */
+  .quantity-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  .quantity-controls .btn {
+    min-width: 45px;
+    height: 45px;
+    border-radius: 0.375rem; /* Square buttons instead of round */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+  
+  .quantity-controls input {
+    width: 90px !important; /* Wider for 3-digit numbers */
+    height: 45px !important;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: 2px solid #dee2e6;
+  }
+  
+  .quantity-controls input:focus {
+    border-color: var(--nokai-primary);
+    box-shadow: 0 0 0 0.2rem rgba(90, 31, 138, 0.25);
   }
 }

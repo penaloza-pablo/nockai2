@@ -232,6 +232,55 @@ function App() {
     fetchInventoryData();
     loadLastUpdateInfo();
     fetchBookingsCount();
+    
+    // Check for direct link parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const directSection = urlParams.get('section');
+    const directFeature = urlParams.get('feature');
+    const directView = urlParams.get('view');
+    
+    if (directSection && directFeature) {
+      setCurrentSection(directSection);
+      setCurrentFeature(directFeature);
+      
+      // If direct view is specified, open that view
+      if (directView === 'update' && directFeature === 'inventory') {
+        setShowUpdateForm(true);
+        setShowInventoryTable(false);
+        setShowBookingsTable(false);
+        setShowExpectedUsageTable(false);
+        setShowAlarmsTable(false);
+        setShowRules(false);
+      } else if (directView === 'stock' && directFeature === 'inventory') {
+        setShowInventoryTable(true);
+        setShowUpdateForm(false);
+        setShowBookingsTable(false);
+        setShowExpectedUsageTable(false);
+        setShowAlarmsTable(false);
+        setShowRules(false);
+      } else if (directView === 'bookings' && directFeature === 'inventory') {
+        setShowBookingsTable(true);
+        setShowInventoryTable(false);
+        setShowUpdateForm(false);
+        setShowExpectedUsageTable(false);
+        setShowAlarmsTable(false);
+        setShowRules(false);
+      } else if (directView === 'expected-usage' && directFeature === 'inventory') {
+        setShowExpectedUsageTable(true);
+        setShowInventoryTable(false);
+        setShowUpdateForm(false);
+        setShowBookingsTable(false);
+        setShowAlarmsTable(false);
+        setShowRules(false);
+      } else if (directView === 'alarms' && directFeature === 'inventory') {
+        setShowAlarmsTable(true);
+        setShowInventoryTable(false);
+        setShowUpdateForm(false);
+        setShowBookingsTable(false);
+        setShowExpectedUsageTable(false);
+        setShowRules(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -397,7 +446,15 @@ function App() {
     setCurrentFeature(featureId);
     setIsMobileMenuOpen(false);
     setExpandedSection(null);
+    
+    // Update URL without page reload
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('section', sectionId);
+    newUrl.searchParams.set('feature', featureId);
+    newUrl.searchParams.delete('view'); // Clear view parameter when navigating to main feature
+    window.history.pushState({}, '', newUrl.toString());
   };
+
 
   const handleInventoryCardClick = () => {
     console.log('handleInventoryCardClick called');
@@ -416,6 +473,11 @@ function App() {
     setShowExpectedUsageTable(false);
     setShowAlarmsTable(false);
     setShowRules(false);
+    
+    // Update URL
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.set('view', 'update');
+    window.history.pushState({}, '', newUrl.toString());
     
     // Fetch API data and initialize update quantities
     await fetchApiInventoryDataForUpdate();
@@ -1324,16 +1386,42 @@ function App() {
                                       {item.Item}
                                     </td>
                                     <td className="text-center">
-                                      <div className="d-flex justify-content-center">
-                                        <input
-                                          type="number"
-                                          className="form-control"
-                                          value={updateQuantities[item.Item] || ''}
-                                          onChange={(e) => handleQuantityChange(item.Item, e.target.value)}
-                                          min="0"
-                                          style={{ width: '100px' }}
-                                          onFocus={() => console.log(`🔍 Input focused: ${item.Item}, current value: ${updateQuantities[item.Item]}, API value: ${item.Qty}`)}
-                                        />
+                                      <div className="d-flex justify-content-center align-items-center">
+                                        {/* Mobile-friendly quantity controls */}
+                                        <div className="quantity-controls">
+                                          <button
+                                            type="button"
+                                            className="btn btn-outline-secondary"
+                                            onClick={() => {
+                                              const currentValue = updateQuantities[item.Item] || 0;
+                                              const newValue = Math.max(0, currentValue - 1);
+                                              handleQuantityChange(item.Item, newValue.toString());
+                                            }}
+                                          >
+                                            <i className="bi-dash"></i>
+                                          </button>
+                                          
+                                          <input
+                                            type="number"
+                                            className="form-control text-center"
+                                            value={updateQuantities[item.Item] || ''}
+                                            onChange={(e) => handleQuantityChange(item.Item, e.target.value)}
+                                            min="0"
+                                            onFocus={() => console.log(`🔍 Input focused: ${item.Item}, current value: ${updateQuantities[item.Item]}, API value: ${item.Qty}`)}
+                                          />
+                                          
+                                          <button
+                                            type="button"
+                                            className="btn btn-outline-secondary"
+                                            onClick={() => {
+                                              const currentValue = updateQuantities[item.Item] || 0;
+                                              const newValue = currentValue + 1;
+                                              handleQuantityChange(item.Item, newValue.toString());
+                                            }}
+                                          >
+                                            <i className="bi-plus"></i>
+                                          </button>
+                                        </div>
                                       </div>
                                     </td>
                                   </tr>
