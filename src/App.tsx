@@ -433,9 +433,6 @@ function App() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
 
   const toggleSection = (sectionId: string) => {
     setExpandedSection(expandedSection === sectionId ? null : sectionId);
@@ -999,16 +996,9 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
-        {/* Mobile Sidebar Toggle Button */}
-        <button 
-          className="sidebar-toggle-btn d-lg-none"
-          onClick={toggleSidebar}
-        >
-          <i className="bi bi-chevron-right"></i>
-        </button>
 
-        {/* Sidebar */}
-        <aside className={`sidebar position-fixed ${isSidebarOpen ? 'sidebar-open' : ''}`} style={{ top: '60px', left: 0, width: '250px', height: 'calc(100vh - 60px)', overflowY: 'auto', zIndex: 1020 }}>
+        {/* Sidebar - Hidden on mobile */}
+        <aside className={`sidebar position-fixed d-none d-lg-block ${isSidebarOpen ? 'sidebar-open' : ''}`} style={{ top: '60px', left: 0, width: '250px', height: 'calc(100vh - 60px)', overflowY: 'auto', zIndex: 1020 }}>
           {getCurrentSection() && (
             <div>
               {/* <div className="sidebar-title">{getCurrentSection()?.title}</div> */}
@@ -1025,14 +1015,6 @@ function App() {
             </div>
           )}
         </aside>
-
-        {/* Mobile Sidebar Overlay */}
-        {isSidebarOpen && (
-          <div 
-            className="sidebar-overlay d-lg-none"
-            onClick={() => setIsSidebarOpen(false)}
-          ></div>
-        )}
 
         {/* Content Area */}
         <main className="content-area" style={{ marginLeft: '250px' }}>

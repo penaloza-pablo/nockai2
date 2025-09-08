@@ -321,6 +321,8 @@ body {
 .inventory-card {
   transition: all 0.3s ease;
   border: 1px solid var(--nokai-border);
+  min-height: 200px; /* Reduced height for better proportions */
+  height: 100%;
 }
 
 .inventory-card:hover {
@@ -333,6 +335,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 200px; /* Reduced height for better proportions */
 }
 
 .inventory-card .mt-auto {
@@ -344,6 +347,13 @@ body {
   display: flex;
   align-items: center;
   margin-bottom: 1rem;
+}
+
+.inventory-card h5 {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  min-height: 2.5rem; /* Ensure consistent title height */
 }
 
 .inventory-card .text-primary {
@@ -811,75 +821,23 @@ ul li:hover {
   outline: none !important;
 }
 
-/* Mobile Sidebar Toggle Button */
-.sidebar-toggle-btn {
-  position: fixed;
-  top: 50%;
-  left: 10px;
-  transform: translateY(-50%);
-  z-index: 1030;
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
-}
-
-.sidebar-toggle-btn:hover {
-  background-color: #5a6268;
-  color: white;
-  transform: translateY(-50%) scale(1.05);
-}
-
-.sidebar-toggle-btn:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(108, 117, 125, 0.3);
-}
-
-/* Mobile Sidebar Overlay */
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0,0,0,0.5);
-  z-index: 1015;
-}
 
 /* Responsive */
 @media (max-width: 991.98px) {
-  /* Hide desktop sidebar on tablets and mobile */
+  /* Hide desktop sidebar completely on tablets and mobile */
   .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-  }
-  
-  .sidebar.sidebar-open {
-    transform: translateX(0);
+    display: none !important;
   }
   
   /* Adjust content area for mobile */
   .content-area {
     margin-left: 0 !important;
     padding: 1rem;
-    padding-top: 80px; /* Space for toggle button */
+    padding-top: 20px; /* Reduced padding since no toggle button */
   }
 }
 
 @media (min-width: 992px) {
-  /* Hide sidebar toggle button on desktop */
-  .sidebar-toggle-btn,
-  .sidebar-overlay {
-    display: none !important;
-  }
-  
   /* Ensure sidebar is visible on desktop */
   .sidebar {
     transform: translateX(0) !important;
@@ -908,7 +866,32 @@ ul li:hover {
   
   /* Adjust card spacing on mobile */
   .card {
-    margin-bottom: 0.75rem;
+    margin-bottom: 1.5rem; /* Reduced spacing between cards */
+  }
+  
+  /* Additional spacing for inventory cards specifically */
+  .inventory-card {
+    margin-bottom: 1.5rem !important;
+    min-height: 180px !important; /* Reduced height on mobile */
+  }
+  
+  .inventory-card .card-body {
+    min-height: 180px !important; /* Reduced card body height on mobile */
+  }
+  
+  /* Spacing between rows of cards on mobile */
+  .row.mt-4 {
+    margin-top: 1.5rem !important; /* Reduced spacing between card rows */
+  }
+  
+  /* Ensure consistent spacing when cards stack vertically in mobile */
+  .row .col-md-4 {
+    margin-bottom: 1.5rem !important; /* Reduced spacing for stacked cards */
+  }
+  
+  /* Remove bottom margin from last card in each row to avoid double spacing */
+  .row .col-md-4:last-child {
+    margin-bottom: 0 !important;
   }
   
   /* Make tables more mobile-friendly */
