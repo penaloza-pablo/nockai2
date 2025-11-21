@@ -31,6 +31,33 @@ const schema = a.schema({
       checkOut: a.datetime().required(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
+  
+  Incident: a
+    .model({
+      reportedBy: a.string().required(),
+      reportDate: a.datetime().required(),
+      affectedArea: a.string().required(),
+      description: a.string().required(),
+      mentionedUsers: a.string().array(),
+      mentionedProperties: a.string().array(),
+      priority: a.string(),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  IncidentComment: a
+    .model({
+      incidentId: a.id().required(),
+      comment: a.string().required(),
+      commentedBy: a.string().required(),
+      commentedAt: a.datetime().required(),
+      mentionedUsers: a.string().array(),
+      mentionedProperties: a.string().array(),
+      createdAt: a.datetime(),
+      updatedAt: a.datetime(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
