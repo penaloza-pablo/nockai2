@@ -58,6 +58,79 @@ const schema = a.schema({
       updatedAt: a.datetime(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
+  
+  ConsumptionRule: a
+    .model({
+      name: a.string().required(),
+      description: a.string(),
+      formula: a.string(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  InventoryItem2: a
+    .model({
+      itemName: a.string().required(),
+      qty: a.integer().required(),
+      rebuyQty: a.integer().required(),
+      location: a.string().required(),
+      status: a.string(),
+      tolerance: a.integer(),
+      description: a.string(),
+      unitPrice: a.float(),
+      consumptionRuleId: a.id(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  PurchaseRecord: a
+    .model({
+      itemName: a.string().required(),
+      quantity: a.integer().required(),
+      totalPrice: a.float().required(),
+      unitPrice: a.float().required(),
+      supplier: a.string().required(),
+      location: a.string().required(),
+      inventoryItemId: a.id(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  InventorySpotCheck: a
+    .model({
+      checkDate: a.string().required(),
+      location: a.string().required(),
+      userId: a.string().required(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  ItemRule: a
+    .model({
+      itemName: a.string().required(),
+      propertyType: a.string().required(),
+      consumptionRuleId: a.id().required(),
+      inventoryItemId: a.id(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  Property: a
+    .model({
+      propertyName: a.string().required(),
+      propertyType: a.string().required(),
+      guestCapacity: a.integer().required(),
+      apiReference: a.string(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
+  
+  Alarm: a
+    .model({
+      name: a.string().required(),
+      description: a.string(),
+      section: a.string().required(),
+      function: a.string().required(),
+      type: a.string().required(),
+      status: a.string().required(),
+      date: a.string(),
+      log: a.string(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
