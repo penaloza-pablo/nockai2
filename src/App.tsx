@@ -140,6 +140,14 @@ const sections: Section[] = [
     title: 'Ops',
     features: [
       {
+        id: 'agent',
+        title: 'Agent',
+        description: 'AI Agent for system information extraction',
+        content: 'AI-powered agent that can extract information from all system tables and answer questions about your data.',
+        functionality: 'This AI agent can query and extract information from all tables in the system, including inventory, properties, incidents, and more. Simply ask questions in natural language.',
+        icon: 'bi-robot'
+      },
+      {
         id: 'inventory-2',
         title: 'Inventory',
         description: 'New inventory management system',
@@ -273,6 +281,12 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  
+  // Estados para Agent
+  const [agentMessage, setAgentMessage] = useState<string>('');
+  const [agentResponse, setAgentResponse] = useState<string>('');
+  const [agentLoading, setAgentLoading] = useState<boolean>(false);
+  const [agentHistory, setAgentHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   
   // Estados para Inventory 2
   const [inventoryItems2, setInventoryItems2] = useState<InventoryItem2[]>([]);
@@ -571,6 +585,39 @@ function App() {
       setPurchaseForm(prev => ({ ...prev, unitPrice: 0 }));
     }
   }, [purchaseForm.totalPrice, purchaseForm.quantity]);
+
+  // Handler para Agent
+  const handleAgentSubmit = async () => {
+    if (!agentMessage.trim() || agentLoading) return;
+    
+    const userMessage = agentMessage.trim();
+    setAgentMessage('');
+    setAgentLoading(true);
+    
+    // Agregar mensaje del usuario al historial
+    setAgentHistory(prev => [...prev, { role: 'user', content: userMessage }]);
+    
+    try {
+      // Por ahora, una respuesta básica. Aquí se implementará la lógica del agente IA
+      // que consultará las tablas del sistema
+      const response = `He recibido tu pregunta: "${userMessage}". 
+      
+La funcionalidad del agente IA está en desarrollo. Próximamente podré consultar todas las tablas del sistema (Inventory, Properties, Incidents, etc.) y responder tus preguntas sobre los datos.`;
+      
+      // Simular un pequeño delay para hacer la experiencia más realista
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setAgentResponse(response);
+      setAgentHistory(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (error) {
+      console.error('Error al procesar mensaje del agente:', error);
+      const errorMessage = 'Lo siento, hubo un error al procesar tu mensaje. Por favor intenta de nuevo.';
+      setAgentResponse(errorMessage);
+      setAgentHistory(prev => [...prev, { role: 'assistant', content: errorMessage }]);
+    } finally {
+      setAgentLoading(false);
+    }
+  };
 
   // Handlers para Inventory 2 Dashboard
   const handleInventory2TableClick = () => {
@@ -2391,7 +2438,101 @@ function App() {
                 })()}
                 {null}
                 
-                {currentFeature === 'inventory-2' && !showInventory2Table && !showInventory2Rules && !showInventory2Purchase && !showInventory2SpotCheck && !showInventory2ItemsRules && !showInventory2SpotCheckWizard ? (
+                {currentFeature === 'agent' ? (
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-4">
+                      <div className="d-flex align-items-center gap-3">
+                        <i className="bi-robot text-dark fs-4" style={{ lineHeight: '1' }}></i>
+                        <h3 className="mb-0">Agent</h3>
+                      </div>
+                    </div>
+                    
+                    <div className="card">
+                      <div className="card-body">
+                        <p className="text-muted mb-4">
+                          Pregunta al agente IA sobre cualquier información del sistema. El agente puede consultar todas las tablas disponibles.
+                        </p>
+                        
+                        {/* Historial de conversación */}
+                        {agentHistory.length > 0 && (
+                          <div className="mb-4" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem', padding: '1rem' }}>
+                            {agentHistory.map((message, index) => (
+                              <div key={index} className={`mb-3 ${message.role === 'user' ? 'text-end' : 'text-start'}`}>
+                                <div className={`d-inline-block p-3 rounded ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '80%' }}>
+                                  <strong>{message.role === 'user' ? 'Tú' : 'Agente'}:</strong>
+                                  <div className="mt-2">{message.content}</div>
+                                </div>
+                              </div>
+                            ))}
+                            {agentLoading && (
+                              <div className="text-start mb-3">
+                                <div className="d-inline-block p-3 rounded bg-light">
+                                  <strong>Agente:</strong>
+                                  <div className="mt-2">
+                                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Pensando...
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Campo de texto para el mensaje */}
+                        <div className="d-flex gap-2">
+                          <textarea
+                            className="form-control"
+                            rows={3}
+                            placeholder="Escribe tu pregunta aquí..."
+                            value={agentMessage}
+                            onChange={(e) => setAgentMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                // Aquí se enviará el mensaje al agente
+                                handleAgentSubmit();
+                              }
+                            }}
+                            disabled={agentLoading}
+                          />
+                        </div>
+                        
+                        <div className="d-flex justify-content-end gap-2 mt-3">
+                          <button
+                            className="btn btn-primary"
+                            onClick={handleAgentSubmit}
+                            disabled={agentLoading || !agentMessage.trim()}
+                          >
+                            {agentLoading ? (
+                              <>
+                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Enviando...
+                              </>
+                            ) : (
+                              <>
+                                <i className="bi-send me-2"></i>
+                                Enviar
+                              </>
+                            )}
+                          </button>
+                          {agentHistory.length > 0 && (
+                            <button
+                              className="btn btn-outline-secondary"
+                              onClick={() => {
+                                setAgentHistory([]);
+                                setAgentMessage('');
+                                setAgentResponse('');
+                              }}
+                            >
+                              <i className="bi-trash me-2"></i>
+                              Limpiar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : currentFeature === 'inventory-2' && !showInventory2Table && !showInventory2Rules && !showInventory2Purchase && !showInventory2SpotCheck && !showInventory2ItemsRules && !showInventory2SpotCheckWizard ? (
                   <>
                     <div className="row">
                       <div className="col-md-4">
