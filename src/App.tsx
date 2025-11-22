@@ -284,7 +284,6 @@ function App() {
   
   // Estados para Agent
   const [agentMessage, setAgentMessage] = useState<string>('');
-  const [agentResponse, setAgentResponse] = useState<string>('');
   const [agentLoading, setAgentLoading] = useState<boolean>(false);
   const [agentHistory, setAgentHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   
@@ -607,12 +606,10 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
       // Simular un pequeño delay para hacer la experiencia más realista
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      setAgentResponse(response);
       setAgentHistory(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {
       console.error('Error al procesar mensaje del agente:', error);
       const errorMessage = 'Lo siento, hubo un error al procesar tu mensaje. Por favor intenta de nuevo.';
-      setAgentResponse(errorMessage);
       setAgentHistory(prev => [...prev, { role: 'assistant', content: errorMessage }]);
     } finally {
       setAgentLoading(false);
@@ -1335,7 +1332,7 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
             let consumptionRule: ConsumptionRule | undefined;
             if (item.consumptionRuleId) {
               try {
-                const ruleData = await item.consumptionRule();
+                const ruleData = await client.models.ConsumptionRule.get({ id: item.consumptionRuleId });
                 if (ruleData?.data) {
                   consumptionRule = {
                     id: ruleData.data.id,
@@ -1677,7 +1674,7 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
             let consumptionRule: ConsumptionRule | undefined;
             if (rule.consumptionRuleId) {
               try {
-                const ruleData = await rule.consumptionRule();
+                const ruleData = await client.models.ConsumptionRule.get({ id: rule.consumptionRuleId });
                 if (ruleData?.data) {
                   consumptionRule = {
                     id: ruleData.data.id,
@@ -2135,36 +2132,37 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
     }
   };
 
-  const deleteIncident = async (id: string) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar esta incidencia?')) {
-      return;
-    }
+  // Función para eliminar incidencias (no utilizada actualmente)
+  // const deleteIncident = async (id: string) => {
+  //   if (!confirm('¿Estás seguro de que deseas eliminar esta incidencia?')) {
+  //     return;
+  //   }
 
-    try {
-      // Primero eliminar todos los comentarios asociados
-      const comments = await fetchIncidentComments(id);
-      for (const comment of comments) {
-        await client.models.IncidentComment.delete({ id: comment.id });
-      }
+  //   try {
+  //     // Primero eliminar todos los comentarios asociados
+  //     const comments = await fetchIncidentComments(id);
+  //     for (const comment of comments) {
+  //       await client.models.IncidentComment.delete({ id: comment.id });
+  //     }
 
-      // Luego eliminar la incidencia
-      const { errors } = await client.models.Incident.delete({ id });
+  //     // Luego eliminar la incidencia
+  //     const { errors } = await client.models.Incident.delete({ id });
 
-      if (errors) {
-        console.error('Error deleting incident:', errors);
-        alert('Error al eliminar la incidencia. Por favor intenta de nuevo.');
-      } else {
-        await fetchIncidents();
-        if (selectedIncident?.id === id) {
-          setShowIncidentDetail(false);
-          setSelectedIncident(null);
-        }
-      }
-    } catch (error) {
-      console.error('Error deleting incident:', error);
-      alert('Error al eliminar la incidencia. Por favor intenta de nuevo.');
-    }
-  };
+  //     if (errors) {
+  //       console.error('Error deleting incident:', errors);
+  //       alert('Error al eliminar la incidencia. Por favor intenta de nuevo.');
+  //     } else {
+  //       await fetchIncidents();
+  //       if (selectedIncident?.id === id) {
+  //         setShowIncidentDetail(false);
+  //         setSelectedIncident(null);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('Error deleting incident:', error);
+  //     alert('Error al eliminar la incidencia. Por favor intenta de nuevo.');
+  //   }
+  // };
 
   const addComment = async (incidentId: string) => {
     if (!newCommentForm.comment.trim()) {
@@ -2521,7 +2519,6 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
                               onClick={() => {
                                 setAgentHistory([]);
                                 setAgentMessage('');
-                                setAgentResponse('');
                               }}
                             >
                               <i className="bi-trash me-2"></i>
