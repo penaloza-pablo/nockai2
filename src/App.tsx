@@ -4,6 +4,7 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useState, useEffect } from "react";
 import { generateClient } from "aws-amplify/data";
 import { fetchAuthSession } from "aws-amplify/auth";
+import { useAIConversation } from "./client";
 
 const client = generateClient<Schema>();
 
@@ -282,10 +283,17 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   
-  // Estados para Agent
+  // Hook de IA para conversación con el Agent
+  const [
+    {
+      data: { messages: agentHistory = [] },
+      isLoading: agentLoading,
+    },
+    handleAgentSendMessage,
+  ] = useAIConversation('agent');
+  
+  // Estado local para el input del mensaje
   const [agentMessage, setAgentMessage] = useState<string>('');
-  const [agentLoading, setAgentLoading] = useState<boolean>(false);
-  const [agentHistory, setAgentHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   
   // Estados para Inventory 2
   const [inventoryItems2, setInventoryItems2] = useState<InventoryItem2[]>([]);
@@ -591,28 +599,13 @@ function App() {
     
     const userMessage = agentMessage.trim();
     setAgentMessage('');
-    setAgentLoading(true);
     
-    // Agregar mensaje del usuario al historial
-    setAgentHistory(prev => [...prev, { role: 'user', content: userMessage }]);
-    
+    // Enviar mensaje usando el hook de IA de Amplify
     try {
-      // Por ahora, una respuesta básica. Aquí se implementará la lógica del agente IA
-      // que consultará las tablas del sistema
-      const response = `He recibido tu pregunta: "${userMessage}". 
-      
-La funcionalidad del agente IA está en desarrollo. Próximamente podré consultar todas las tablas del sistema (Inventory, Properties, Incidents, etc.) y responder tus preguntas sobre los datos.`;
-      
-      // Simular un pequeño delay para hacer la experiencia más realista
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setAgentHistory(prev => [...prev, { role: 'assistant', content: response }]);
+      // handleAgentSendMessage espera un objeto con content como array
+      handleAgentSendMessage({ content: [{ text: userMessage }] });
     } catch (error) {
       console.error('Error al procesar mensaje del agente:', error);
-      const errorMessage = 'Lo siento, hubo un error al procesar tu mensaje. Por favor intenta de nuevo.';
-      setAgentHistory(prev => [...prev, { role: 'assistant', content: errorMessage }]);
-    } finally {
-      setAgentLoading(false);
     }
   };
 
@@ -2452,13 +2445,13 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
                         </p>
                         
                         {/* Historial de conversación */}
-                        {agentHistory.length > 0 && (
+                        {agentHistory && agentHistory.length > 0 && (
                           <div className="mb-4" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem', padding: '1rem' }}>
-                            {agentHistory.map((message, index) => (
+                            {agentHistory.map((message: any, index: number) => (
                               <div key={index} className={`mb-3 ${message.role === 'user' ? 'text-end' : 'text-start'}`}>
                                 <div className={`d-inline-block p-3 rounded ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '80%' }}>
                                   <strong>{message.role === 'user' ? 'Tú' : 'Agente'}:</strong>
-                                  <div className="mt-2">{message.content}</div>
+                                  <div className="mt-2">{message.content || message.text || String(message)}</div>
                                 </div>
                               </div>
                             ))}
@@ -2513,16 +2506,15 @@ La funcionalidad del agente IA está en desarrollo. Próximamente podré consult
                               </>
                             )}
                           </button>
-                          {agentHistory.length > 0 && (
+                          {agentHistory && agentHistory.length > 0 && (
                             <button
                               className="btn btn-outline-secondary"
                               onClick={() => {
-                                setAgentHistory([]);
                                 setAgentMessage('');
                               }}
                             >
                               <i className="bi-trash me-2"></i>
-                              Limpiar
+                              Limpiar entrada
                             </button>
                           )}
                         </div>
