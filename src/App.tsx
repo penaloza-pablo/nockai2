@@ -32,6 +32,7 @@ interface InventoryItem2 {
   qty: number;
   rebuyQty: number;
   location: string;
+  category?: string;
   status?: string;
   tolerance?: number;
   description?: string;
@@ -59,6 +60,7 @@ interface PurchaseRecord {
   unitPrice: number;
   supplier: string;
   location: string;
+  category?: string;
   inventoryItemId?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -294,6 +296,7 @@ function App() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isAddingNewItem, setIsAddingNewItem] = useState<boolean>(false);
   const [locationFilter, setLocationFilter] = useState<string>('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [showInventory2Table, setShowInventory2Table] = useState<boolean>(false);
   const [showInventory2Rules, setShowInventory2Rules] = useState<boolean>(false);
   const [showInventory2Purchase, setShowInventory2Purchase] = useState<boolean>(false);
@@ -321,6 +324,7 @@ function App() {
     unitPrice: 0,
     supplier: '',
     location: '',
+    category: '',
     inventoryItemId: undefined as string | undefined,
     isNewItem: false,
   });
@@ -494,6 +498,7 @@ function App() {
     qty: 0,
     rebuyQty: 0,
     location: '',
+    category: '',
     status: 'OK',
     tolerance: 0,
     description: '',
@@ -574,6 +579,9 @@ function App() {
     });
     return Array.from(locations).sort();
   };
+
+  // Categorías disponibles
+  const categories = ['Welcome kit', 'Cleaning', 'Others'];
 
   // Efecto para calcular precio unitario cuando cambian totalPrice o quantity
   useEffect(() => {
@@ -885,6 +893,7 @@ function App() {
             qty: verifiedQty,
             rebuyQty: item.rebuyQty,
             location: item.location,
+            category: item.category || undefined,
             status: newStatus,
             tolerance: item.tolerance || undefined,
             description: item.description || undefined,
@@ -1093,6 +1102,7 @@ function App() {
       unitPrice: 0,
       supplier: '',
       location: '',
+      category: '',
       inventoryItemId: undefined,
       isNewItem: false,
     });
@@ -1154,6 +1164,7 @@ function App() {
           qty: purchaseForm.quantity,
           rebuyQty: 0, // Valor por defecto
           location: purchaseForm.location,
+          category: purchaseForm.category || undefined,
           status: 'OK',
           tolerance: 0,
           description: '',
@@ -1180,6 +1191,7 @@ function App() {
         unitPrice: purchaseForm.unitPrice,
         supplier: purchaseForm.supplier,
         location: purchaseForm.location,
+        category: purchaseForm.category || undefined,
         inventoryItemId: finalInventoryItemId || undefined,
       });
 
@@ -1199,6 +1211,7 @@ function App() {
             itemName: existingItem.itemName,
             rebuyQty: existingItem.rebuyQty,
             location: purchaseForm.location, // Actualizar ubicación si cambió
+            category: purchaseForm.category || existingItem.category || undefined,
             status: existingItem.status,
             tolerance: existingItem.tolerance,
             description: existingItem.description,
@@ -1224,6 +1237,7 @@ function App() {
         unitPrice: 0,
         supplier: '',
         location: '',
+        category: '',
         inventoryItemId: undefined,
         isNewItem: false,
       });
@@ -1396,6 +1410,7 @@ function App() {
         qty: newItemForm.qty || 0,
         rebuyQty: newItemForm.rebuyQty || 0,
         location: newItemForm.location!,
+        category: newItemForm.category || undefined,
         status: newItemForm.status || 'OK',
         tolerance: newItemForm.tolerance || 0,
         description: newItemForm.description || '',
@@ -2635,6 +2650,23 @@ function App() {
                             ))}
                           </select>
                         </div>
+                        <div className="d-flex align-items-center gap-2">
+                          <label htmlFor="categoryFilter" className="form-label mb-0 small">Filtrar por categoría:</label>
+                          <select
+                            id="categoryFilter"
+                            className="form-select form-select-sm"
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            style={{ minWidth: '150px' }}
+                          >
+                            <option value="All">All</option>
+                            {categories.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         <button 
                           className="btn btn-outline-primary" 
                           onClick={fetchInventoryItems2}
@@ -2673,6 +2705,7 @@ function App() {
                               <th className="text-start">Item</th>
                               <th className="text-start">Description</th>
                               <th className="text-start">Ubicación</th>
+                              <th className="text-start">Categoría</th>
                               <th className="text-center">Cantidad</th>
                               <th className="text-center">Estado</th>
                               <th className="text-center">rebuyQty</th>
@@ -2713,6 +2746,20 @@ function App() {
                                     value={newItemForm.location || ''}
                                     onChange={(e) => setNewItemForm({ ...newItemForm, location: e.target.value })}
                                   />
+                                </td>
+                                <td className="text-start">
+                                  <select
+                                    className="form-select form-select-sm"
+                                    value={newItemForm.category || ''}
+                                    onChange={(e) => setNewItemForm({ ...newItemForm, category: e.target.value })}
+                                  >
+                                    <option value="">Seleccionar...</option>
+                                    {categories.map((category) => (
+                                      <option key={category} value={category}>
+                                        {category}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </td>
                                 <td className="text-center">
                                   <input
@@ -2816,6 +2863,11 @@ function App() {
                                 filteredAndSortedItems = filteredAndSortedItems.filter(item => item.location === locationFilter);
                               }
                               
+                              // Filtrar por categoría
+                              if (categoryFilter !== 'All') {
+                                filteredAndSortedItems = filteredAndSortedItems.filter(item => item.category === categoryFilter);
+                              }
+                              
                               // Ordenar por nombre de A a Z
                               filteredAndSortedItems.sort((a, b) => {
                                 const nameA = (a.itemName || '').toLowerCase();
@@ -2868,6 +2920,25 @@ function App() {
                                             setInventoryItems2(updatedItems);
                                           }}
                                         />
+                                      </td>
+                                      <td className="text-start">
+                                        <select
+                                          className="form-select form-select-sm"
+                                          value={item.category || ''}
+                                          onChange={(e) => {
+                                            const updatedItems = inventoryItems2.map(i => 
+                                              i.id === item.id ? { ...i, category: e.target.value } : i
+                                            );
+                                            setInventoryItems2(updatedItems);
+                                          }}
+                                        >
+                                          <option value="">Seleccionar...</option>
+                                          {categories.map((category) => (
+                                            <option key={category} value={category}>
+                                              {category}
+                                            </option>
+                                          ))}
+                                        </select>
                                       </td>
                                       <td className="text-center">
                                         <input
@@ -2998,6 +3069,7 @@ function App() {
                                       </td>
                                       <td className="text-start">{item.description || <span className="text-muted">-</span>}</td>
                                       <td className="text-start">{item.location}</td>
+                                      <td className="text-start">{item.category || <span className="text-muted">-</span>}</td>
                                       <td className="text-center">{item.qty?.toLocaleString() || 0}</td>
                                       <td className="text-center">
                                         {item.status === 'OK' ? (
@@ -3493,6 +3565,25 @@ function App() {
                                 </select>
                               )}
                             </div>
+
+                            <div className="col-md-6">
+                              <label htmlFor="category" className="form-label">
+                                Categoría
+                              </label>
+                              <select
+                                className="form-select"
+                                id="category"
+                                value={purchaseForm.category}
+                                onChange={(e) => setPurchaseForm(prev => ({ ...prev, category: e.target.value }))}
+                              >
+                                <option value="">Seleccionar...</option>
+                                {categories.map((category) => (
+                                  <option key={category} value={category}>
+                                    {category}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
 
                           <div className="row mb-3">
@@ -3573,6 +3664,7 @@ function App() {
                                   unitPrice: 0,
                                   supplier: '',
                                   location: '',
+                                  category: '',
                                   inventoryItemId: undefined,
                                   isNewItem: false,
                                 });

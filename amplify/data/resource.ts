@@ -73,6 +73,7 @@ const schema = a.schema({
       qty: a.integer().required(),
       rebuyQty: a.integer().required(),
       location: a.string().required(),
+      category: a.string(),
       status: a.string(),
       tolerance: a.integer(),
       description: a.string(),
@@ -89,6 +90,7 @@ const schema = a.schema({
       unitPrice: a.float().required(),
       supplier: a.string().required(),
       location: a.string().required(),
+      category: a.string(),
       inventoryItemId: a.id(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
