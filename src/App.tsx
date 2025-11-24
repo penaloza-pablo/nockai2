@@ -2,6 +2,7 @@
 import type { Schema } from "../amplify/data/resource";
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useState, useEffect } from "react";
+import React from "react";
 import { generateClient } from "aws-amplify/data";
 import { fetchAuthSession } from "aws-amplify/auth";
 
@@ -1335,6 +1336,7 @@ function App() {
         console.error('Error fetching inventory items 2:', errors);
         setInventoryItems2([]);
       } else {
+        console.log('Items obtenidos de la BD (primer item como ejemplo):', data?.[0]);
         // Mapear los datos y cargar las relaciones de consumo
         const itemsWithRules = await Promise.all(
           (data || []).map(async (item) => {
@@ -1362,6 +1364,7 @@ function App() {
               qty: item.qty,
               rebuyQty: item.rebuyQty,
               location: item.location,
+              category: item.category || undefined,
               status: item.status || undefined,
               tolerance: item.tolerance || undefined,
               description: item.description || undefined,
@@ -1405,23 +1408,43 @@ function App() {
     }
 
     try {
-      const { errors } = await client.models.InventoryItem2.create({
+      // Preparar el objeto de datos para crear
+      const createData: any = {
         itemName: newItemForm.itemName!,
         qty: newItemForm.qty || 0,
         rebuyQty: newItemForm.rebuyQty || 0,
         location: newItemForm.location!,
-        category: newItemForm.category || undefined,
         status: newItemForm.status || 'OK',
         tolerance: newItemForm.tolerance || 0,
         description: newItemForm.description || '',
-        unitPrice: newItemForm.unitPrice || undefined,
-        consumptionRuleId: newItemForm.consumptionRuleId || undefined,
-      });
+      };
+
+      // Incluir category si tiene un valor válido (no vacío)
+      if (newItemForm.category && newItemForm.category.trim() !== '') {
+        createData.category = newItemForm.category.trim();
+        console.log('✅ Categoría incluida en createData:', createData.category);
+      } else {
+        console.log('⚠️ Categoría NO incluida - valor del form:', newItemForm.category);
+      }
+      
+      // Debug: verificar que category se está incluyendo
+      console.log('📦 Creando item - Datos completos a enviar:', JSON.stringify(createData, null, 2));
+
+      // Campos opcionales
+      if (newItemForm.unitPrice !== undefined) {
+        createData.unitPrice = newItemForm.unitPrice;
+      }
+      if (newItemForm.consumptionRuleId) {
+        createData.consumptionRuleId = newItemForm.consumptionRuleId;
+      }
+
+      const { data: createdItem, errors } = await client.models.InventoryItem2.create(createData);
 
       if (errors) {
         console.error('Error creating inventory item:', errors);
         alert('Error al crear el item. Por favor intenta de nuevo.');
       } else {
+        console.log('Item creado exitosamente:', createdItem);
         await fetchInventoryItems2();
         setIsAddingNewItem(false);
         setNewItemForm({
@@ -1429,6 +1452,7 @@ function App() {
           qty: 0,
           rebuyQty: 0,
           location: '',
+          category: '',
           status: 'OK',
           tolerance: 0,
           description: '',
@@ -1450,6 +1474,7 @@ function App() {
         qty: item.qty,
         rebuyQty: item.rebuyQty,
         location: item.location,
+        category: item.category || undefined,
         status: item.status,
         tolerance: item.tolerance,
         description: item.description,
@@ -2877,8 +2902,8 @@ function App() {
                               
                               return filteredAndSortedItems.length > 0 ? (
                                 filteredAndSortedItems.map((item) => (
-                                <>
-                                  <tr key={item.id}>
+                                <React.Fragment key={item.id}>
+                                  <tr>
                                     {editingItemId === item.id ? (
                                     <>
                                       <td className="text-center"></td>
@@ -3184,7 +3209,7 @@ function App() {
                                     </td>
                                   </tr>
                                 )}
-                                </>
+                                </React.Fragment>
                               ))
                               ) : (
                                 <tr>
