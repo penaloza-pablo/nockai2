@@ -286,14 +286,20 @@ function App() {
   // Hook de IA para conversación con el Agent
   const [
     {
-      data: { messages: agentHistory = [] },
+      data,
       isLoading: agentLoading,
     },
     handleAgentSendMessage,
   ] = useAIConversation('agent');
   
+  // Extraer mensajes de forma segura
+  const agentHistory = data?.messages || [];
+  
   // Estado local para el input del mensaje
   const [agentMessage, setAgentMessage] = useState<string>('');
+  
+  // Estado para errores del agente
+  const [agentError, setAgentError] = useState<string | null>(null);
   
   // Estados para Inventory 2
   const [inventoryItems2, setInventoryItems2] = useState<InventoryItem2[]>([]);
@@ -599,13 +605,22 @@ function App() {
     
     const userMessage = agentMessage.trim();
     setAgentMessage('');
+    setAgentError(null); // Limpiar errores anteriores
     
     // Enviar mensaje usando el hook de IA de Amplify
     try {
       // handleAgentSendMessage espera un objeto con content como array
       handleAgentSendMessage({ content: [{ text: userMessage }] });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al procesar mensaje del agente:', error);
+      // Guardar el error para mostrarlo en la UI
+      const errorMessage = error?.message || error?.toString() || 'Error al enviar el mensaje. Por favor intenta de nuevo.';
+      setAgentError(errorMessage);
+      
+      // Si es un error de red o conexión, dar más información
+      if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch') || errorMessage.toLowerCase().includes('connection')) {
+        setAgentError('Error de conexión. Verifica que el sandbox de Amplify esté corriendo (npm run sandbox).');
+      }
     }
   };
 
@@ -2444,17 +2459,69 @@ function App() {
                           Pregunta al agente IA sobre cualquier información del sistema. El agente puede consultar todas las tablas disponibles.
                         </p>
                         
+                        {/* Mostrar error si existe */}
+                        {agentError && (
+                          <div className="alert alert-danger mb-4" role="alert">
+                            <strong>Error:</strong> {String(agentError)}
+                            <button 
+                              type="button" 
+                              className="btn-close ms-2" 
+                              onClick={() => setAgentError(null)}
+                              aria-label="Cerrar"
+                            ></button>
+                          </div>
+                        )}
+                        
+                        {/* Advertencia si no hay sandbox corriendo */}
+                        {!data && !agentLoading && (
+                          <div className="alert alert-warning mb-4" role="alert">
+                            <strong>Advertencia:</strong> El agente IA puede no estar disponible. Asegúrate de que el sandbox de Amplify esté corriendo (npm run sandbox).
+                          </div>
+                        )}
+                        
                         {/* Historial de conversación */}
                         {agentHistory && agentHistory.length > 0 && (
                           <div className="mb-4" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem', padding: '1rem' }}>
-                            {agentHistory.map((message: any, index: number) => (
-                              <div key={index} className={`mb-3 ${message.role === 'user' ? 'text-end' : 'text-start'}`}>
-                                <div className={`d-inline-block p-3 rounded ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '80%' }}>
-                                  <strong>{message.role === 'user' ? 'Tú' : 'Agente'}:</strong>
-                                  <div className="mt-2">{message.content || message.text || String(message)}</div>
-                                </div>
-                              </div>
-                            ))}
+                            {agentHistory.map((message: any, index: number) => {
+                              try {
+                                // Extraer contenido del mensaje de forma segura
+                                let messageContent = '';
+                                let messageRole = message?.role || 'assistant';
+                                
+                                if (typeof message?.content === 'string') {
+                                  messageContent = message.content;
+                                } else if (Array.isArray(message?.content)) {
+                                  // Si content es un array, extraer el texto
+                                  messageContent = message.content
+                                    .map((item: any) => item?.text || item?.content || String(item))
+                                    .join(' ');
+                                } else if (message?.text) {
+                                  messageContent = message.text;
+                                } else if (message?.content) {
+                                  messageContent = String(message.content);
+                                } else {
+                                  messageContent = String(message || '');
+                                }
+                                
+                                return (
+                                  <div key={message?.id || index} className={`mb-3 ${messageRole === 'user' ? 'text-end' : 'text-start'}`}>
+                                    <div className={`d-inline-block p-3 rounded ${messageRole === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '80%' }}>
+                                      <strong>{messageRole === 'user' ? 'Tú' : 'Agente'}:</strong>
+                                      <div className="mt-2" style={{ whiteSpace: 'pre-wrap' }}>{messageContent}</div>
+                                    </div>
+                                  </div>
+                                );
+                              } catch (error) {
+                                console.error('Error renderizando mensaje:', error, message);
+                                return (
+                                  <div key={index} className="mb-3 text-start">
+                                    <div className="d-inline-block p-3 rounded bg-warning" style={{ maxWidth: '80%' }}>
+                                      <strong>Error:</strong> No se pudo mostrar este mensaje.
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            })}
                             {agentLoading && (
                               <div className="text-start mb-3">
                                 <div className="d-inline-block p-3 rounded bg-light">
