@@ -4,7 +4,6 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { useState, useEffect } from "react";
 import { generateClient } from "aws-amplify/data";
 import { fetchAuthSession } from "aws-amplify/auth";
-import { useAIConversation } from "./client";
 
 const client = generateClient<Schema>();
 
@@ -283,23 +282,10 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   
-  // Hook de IA para conversación con el Agent
-  const [
-    {
-      data,
-      isLoading: agentLoading,
-    },
-    handleAgentSendMessage,
-  ] = useAIConversation('agent');
-  
-  // Extraer mensajes de forma segura
-  const agentHistory = data?.messages || [];
-  
-  // Estado local para el input del mensaje
+  // Estados para Agent (interfaz vacía - funcionalidad en desarrollo)
   const [agentMessage, setAgentMessage] = useState<string>('');
-  
-  // Estado para errores del agente
-  const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentLoading, setAgentLoading] = useState<boolean>(false);
+  const [agentHistory, setAgentHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   
   // Estados para Inventory 2
   const [inventoryItems2, setInventoryItems2] = useState<InventoryItem2[]>([]);
@@ -599,28 +585,29 @@ function App() {
     }
   }, [purchaseForm.totalPrice, purchaseForm.quantity]);
 
-  // Handler para Agent
+  // Handler para Agent (funcionalidad en desarrollo)
   const handleAgentSubmit = async () => {
     if (!agentMessage.trim() || agentLoading) return;
     
     const userMessage = agentMessage.trim();
     setAgentMessage('');
-    setAgentError(null); // Limpiar errores anteriores
+    setAgentLoading(true);
     
-    // Enviar mensaje usando el hook de IA de Amplify
+    // Agregar mensaje del usuario al historial
+    setAgentHistory(prev => [...prev, { role: 'user', content: userMessage }]);
+    
     try {
-      // handleAgentSendMessage espera un objeto con content como array
-      handleAgentSendMessage({ content: [{ text: userMessage }] });
-    } catch (error: any) {
-      console.error('Error al procesar mensaje del agente:', error);
-      // Guardar el error para mostrarlo en la UI
-      const errorMessage = error?.message || error?.toString() || 'Error al enviar el mensaje. Por favor intenta de nuevo.';
-      setAgentError(errorMessage);
+      // Simular respuesta - funcionalidad en desarrollo
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Si es un error de red o conexión, dar más información
-      if (errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('fetch') || errorMessage.toLowerCase().includes('connection')) {
-        setAgentError('Error de conexión. Verifica que el sandbox de Amplify esté corriendo (npm run sandbox).');
-      }
+      const response = 'La funcionalidad del agente IA está en desarrollo. Próximamente estará disponible.';
+      setAgentHistory(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (error) {
+      console.error('Error al procesar mensaje del agente:', error);
+      const errorMessage = 'Lo siento, hubo un error al procesar tu mensaje. Por favor intenta de nuevo.';
+      setAgentHistory(prev => [...prev, { role: 'assistant', content: errorMessage }]);
+    } finally {
+      setAgentLoading(false);
     }
   };
 
@@ -2459,69 +2446,22 @@ function App() {
                           Pregunta al agente IA sobre cualquier información del sistema. El agente puede consultar todas las tablas disponibles.
                         </p>
                         
-                        {/* Mostrar error si existe */}
-                        {agentError && (
-                          <div className="alert alert-danger mb-4" role="alert">
-                            <strong>Error:</strong> {String(agentError)}
-                            <button 
-                              type="button" 
-                              className="btn-close ms-2" 
-                              onClick={() => setAgentError(null)}
-                              aria-label="Cerrar"
-                            ></button>
-                          </div>
-                        )}
-                        
-                        {/* Advertencia si no hay sandbox corriendo */}
-                        {!data && !agentLoading && (
-                          <div className="alert alert-warning mb-4" role="alert">
-                            <strong>Advertencia:</strong> El agente IA puede no estar disponible. Asegúrate de que el sandbox de Amplify esté corriendo (npm run sandbox).
-                          </div>
-                        )}
+                        {/* Mensaje informativo */}
+                        <div className="alert alert-info mb-4" role="alert">
+                          <strong>Funcionalidad en desarrollo:</strong> El agente IA estará disponible próximamente.
+                        </div>
                         
                         {/* Historial de conversación */}
                         {agentHistory && agentHistory.length > 0 && (
                           <div className="mb-4" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem', padding: '1rem' }}>
-                            {agentHistory.map((message: any, index: number) => {
-                              try {
-                                // Extraer contenido del mensaje de forma segura
-                                let messageContent = '';
-                                let messageRole = message?.role || 'assistant';
-                                
-                                if (typeof message?.content === 'string') {
-                                  messageContent = message.content;
-                                } else if (Array.isArray(message?.content)) {
-                                  // Si content es un array, extraer el texto
-                                  messageContent = message.content
-                                    .map((item: any) => item?.text || item?.content || String(item))
-                                    .join(' ');
-                                } else if (message?.text) {
-                                  messageContent = message.text;
-                                } else if (message?.content) {
-                                  messageContent = String(message.content);
-                                } else {
-                                  messageContent = String(message || '');
-                                }
-                                
-                                return (
-                                  <div key={message?.id || index} className={`mb-3 ${messageRole === 'user' ? 'text-end' : 'text-start'}`}>
-                                    <div className={`d-inline-block p-3 rounded ${messageRole === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '80%' }}>
-                                      <strong>{messageRole === 'user' ? 'Tú' : 'Agente'}:</strong>
-                                      <div className="mt-2" style={{ whiteSpace: 'pre-wrap' }}>{messageContent}</div>
-                                    </div>
-                                  </div>
-                                );
-                              } catch (error) {
-                                console.error('Error renderizando mensaje:', error, message);
-                                return (
-                                  <div key={index} className="mb-3 text-start">
-                                    <div className="d-inline-block p-3 rounded bg-warning" style={{ maxWidth: '80%' }}>
-                                      <strong>Error:</strong> No se pudo mostrar este mensaje.
-                                    </div>
-                                  </div>
-                                );
-                              }
-                            })}
+                            {agentHistory.map((message, index) => (
+                              <div key={index} className={`mb-3 ${message.role === 'user' ? 'text-end' : 'text-start'}`}>
+                                <div className={`d-inline-block p-3 rounded ${message.role === 'user' ? 'bg-primary text-white' : 'bg-light'}`} style={{ maxWidth: '80%' }}>
+                                  <strong>{message.role === 'user' ? 'Tú' : 'Agente'}:</strong>
+                                  <div className="mt-2" style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
+                                </div>
+                              </div>
+                            ))}
                             {agentLoading && (
                               <div className="text-start mb-3">
                                 <div className="d-inline-block p-3 rounded bg-light">
@@ -2577,11 +2517,12 @@ function App() {
                             <button
                               className="btn btn-outline-secondary"
                               onClick={() => {
+                                setAgentHistory([]);
                                 setAgentMessage('');
                               }}
                             >
                               <i className="bi-trash me-2"></i>
-                              Limpiar entrada
+                              Limpiar
                             </button>
                           )}
                         </div>
