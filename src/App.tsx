@@ -26,8 +26,8 @@ interface Section {
 
 
 
-// Define interfaces for Inventory 2
-interface InventoryItem2 {
+// Define interfaces for Inventory 3
+interface InventoryItem3 {
   id: string;
   itemName: string;
   qty: number;
@@ -151,7 +151,7 @@ const sections: Section[] = [
         icon: 'bi-robot'
       },
       {
-        id: 'inventory-2',
+        id: 'inventory-3',
         title: 'Inventory',
         description: 'New inventory management system',
         content: 'New version of inventory management system',
@@ -280,7 +280,7 @@ function App() {
   const { signOut, user } = useAuthenticator();
   const [userEmail, setUserEmail] = useState<string>('User');
   const [currentSection, setCurrentSection] = useState<string>('ops');
-  const [currentFeature, setCurrentFeature] = useState<string>('inventory-2');
+  const [currentFeature, setCurrentFeature] = useState<string>('inventory-3');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -290,8 +290,8 @@ function App() {
   const [agentLoading, setAgentLoading] = useState<boolean>(false);
   const [agentHistory, setAgentHistory] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   
-  // Estados para Inventory 2
-  const [inventoryItems2, setInventoryItems2] = useState<InventoryItem2[]>([]);
+  // Estados para Inventory 3
+  const [inventoryItems2, setInventoryItems2] = useState<InventoryItem3[]>([]);
   const [consumptionRules, setConsumptionRules] = useState<ConsumptionRule[]>([]);
   const [loadingInventory2, setLoadingInventory2] = useState<boolean>(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -331,7 +331,7 @@ function App() {
   });
   const [itemSearchQuery, setItemSearchQuery] = useState<string>('');
   const [showItemSearch, setShowItemSearch] = useState<boolean>(false);
-  const [filteredItems, setFilteredItems] = useState<InventoryItem2[]>([]);
+  const [filteredItems, setFilteredItems] = useState<InventoryItem3[]>([]);
   const [locationCreateNew, setLocationCreateNew] = useState<boolean>(false);
   
   // Estados para historial de compras
@@ -494,7 +494,7 @@ function App() {
     type: '',
     status: 'Pending',
   });
-  const [newItemForm, setNewItemForm] = useState<Partial<InventoryItem2>>({
+  const [newItemForm, setNewItemForm] = useState<Partial<InventoryItem3>>({
     itemName: '',
     qty: 0,
     rebuyQty: 0,
@@ -532,7 +532,7 @@ function App() {
 
 
   useEffect(() => {
-    if (currentFeature === 'inventory-2') {
+    if (currentFeature === 'inventory-3') {
       fetchInventoryItems2();
       fetchConsumptionRules();
       // Resetear vistas al cambiar de feature
@@ -620,7 +620,7 @@ function App() {
     }
   };
 
-  // Handlers para Inventory 2 Dashboard
+  // Handlers para Inventory 3 Dashboard
   const handleInventory2TableClick = () => {
     setShowInventory2Table(true);
     setShowInventory2Rules(false);
@@ -888,7 +888,7 @@ function App() {
         
         // Actualizar item en inventario
         try {
-          await client.models.InventoryItem2.update({
+          await client.models.InventoryItem3.update({
             id: item.id,
             itemName: item.itemName,
             qty: verifiedQty,
@@ -1112,7 +1112,7 @@ function App() {
     setLocationCreateNew(false);
   };
 
-  const handleItemSelect = (item: InventoryItem2) => {
+  const handleItemSelect = (item: InventoryItem3) => {
     setPurchaseForm(prev => ({
       ...prev,
       itemName: item.itemName,
@@ -1160,7 +1160,7 @@ function App() {
 
       // Si es un item nuevo, crearlo primero para obtener su ID
       if (purchaseForm.isNewItem) {
-        const { data: newItemData, errors: createErrors } = await client.models.InventoryItem2.create({
+        const { data: newItemData, errors: createErrors } = await client.models.InventoryItem3.create({
           itemName: purchaseForm.itemName,
           qty: purchaseForm.quantity,
           rebuyQty: 0, // Valor por defecto
@@ -1206,7 +1206,7 @@ function App() {
       if (finalInventoryItemId && !purchaseForm.isNewItem) {
         const existingItem = inventoryItems2.find(item => item.id === finalInventoryItemId);
         if (existingItem) {
-          const { errors: updateErrors } = await client.models.InventoryItem2.update({
+          const { errors: updateErrors } = await client.models.InventoryItem3.update({
             id: existingItem.id,
             qty: existingItem.qty + purchaseForm.quantity,
             itemName: existingItem.itemName,
@@ -1327,11 +1327,11 @@ function App() {
     window.history.pushState({}, '', newUrl.toString());
   };
 
-  // Funciones CRUD para Inventory 2
+  // Funciones CRUD para Inventory 3
   const fetchInventoryItems2 = async () => {
     setLoadingInventory2(true);
     try {
-      const { data, errors } = await client.models.InventoryItem2.list();
+      const { data, errors } = await client.models.InventoryItem3.list();
       if (errors) {
         console.error('Error fetching inventory items 2:', errors);
         setInventoryItems2([]);
@@ -1373,7 +1373,7 @@ function App() {
               consumptionRule,
               createdAt: item.createdAt,
               updatedAt: item.updatedAt,
-            } as InventoryItem2;
+            } as InventoryItem3;
           })
         );
         setInventoryItems2(itemsWithRules);
@@ -1401,7 +1401,7 @@ function App() {
     }
   };
 
-  const createInventoryItem2 = async () => {
+  const createInventoryItem3 = async () => {
     if (!newItemForm.itemName || !newItemForm.location) {
       alert('Por favor completa los campos requeridos: Nombre del Item y Ubicación');
       return;
@@ -1438,7 +1438,7 @@ function App() {
         createData.consumptionRuleId = newItemForm.consumptionRuleId;
       }
 
-      const { data: createdItem, errors } = await client.models.InventoryItem2.create(createData);
+      const { data: createdItem, errors } = await client.models.InventoryItem3.create(createData);
 
       if (errors) {
         console.error('Error creating inventory item:', errors);
@@ -1466,9 +1466,9 @@ function App() {
     }
   };
 
-  const updateInventoryItem2 = async (item: InventoryItem2) => {
+  const updateInventoryItem3 = async (item: InventoryItem3) => {
     try {
-      const { errors } = await client.models.InventoryItem2.update({
+      const { errors } = await client.models.InventoryItem3.update({
         id: item.id,
         itemName: item.itemName,
         qty: item.qty,
@@ -1495,13 +1495,13 @@ function App() {
     }
   };
 
-  const deleteInventoryItem2 = async (id: string) => {
+  const deleteInventoryItem3 = async (id: string) => {
     if (!confirm('¿Estás seguro de que deseas eliminar este item?')) {
       return;
     }
 
     try {
-      const { errors } = await client.models.InventoryItem2.delete({ id });
+      const { errors } = await client.models.InventoryItem3.delete({ id });
 
       if (errors) {
         console.error('Error deleting inventory item:', errors);
@@ -2569,7 +2569,7 @@ function App() {
                       </div>
                     </div>
                   </div>
-                ) : currentFeature === 'inventory-2' && !showInventory2Table && !showInventory2Rules && !showInventory2Purchase && !showInventory2SpotCheck && !showInventory2ItemsRules && !showInventory2SpotCheckWizard ? (
+                ) : currentFeature === 'inventory-3' && !showInventory2Table && !showInventory2Rules && !showInventory2Purchase && !showInventory2SpotCheck && !showInventory2ItemsRules && !showInventory2SpotCheckWizard ? (
                   <>
                     <div className="row">
                       <div className="col-md-4">
@@ -2650,7 +2650,7 @@ function App() {
                       </div>
                     </div>
                   </>
-                ) : currentFeature === 'inventory-2' && showInventory2Table ? (
+                ) : currentFeature === 'inventory-3' && showInventory2Table ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
@@ -2849,7 +2849,7 @@ function App() {
                                   <div className="d-flex gap-1 justify-content-center">
                                     <button
                                       className="btn btn-sm btn-success"
-                                      onClick={createInventoryItem2}
+                                      onClick={createInventoryItem3}
                                       title="Guardar"
                                     >
                                       <i className="bi-check"></i>
@@ -3059,7 +3059,7 @@ function App() {
                                             className="btn btn-sm btn-success"
                                             onClick={() => {
                                               const itemToUpdate = inventoryItems2.find(i => i.id === item.id);
-                                              if (itemToUpdate) updateInventoryItem2(itemToUpdate);
+                                              if (itemToUpdate) updateInventoryItem3(itemToUpdate);
                                             }}
                                             title="Guardar"
                                           >
@@ -3132,7 +3132,7 @@ function App() {
                                           </button>
                                           <button
                                             className="btn btn-sm btn-outline-danger"
-                                            onClick={() => deleteInventoryItem2(item.id)}
+                                            onClick={() => deleteInventoryItem3(item.id)}
                                             title="Eliminar"
                                           >
                                             <i className="bi-trash"></i>
@@ -3226,7 +3226,7 @@ function App() {
                       </div>
                     )}
                   </div>
-                ) : currentFeature === 'inventory-2' && showInventory2Rules ? (
+                ) : currentFeature === 'inventory-3' && showInventory2Rules ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
@@ -3440,7 +3440,7 @@ function App() {
                       </table>
                     </div>
                   </div>
-                ) : currentFeature === 'inventory-2' && showInventory2Purchase ? (
+                ) : currentFeature === 'inventory-3' && showInventory2Purchase ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
@@ -3712,7 +3712,7 @@ function App() {
                       </div>
                     </div>
                   </div>
-                ) : currentFeature === 'inventory-2' && showInventory2SpotCheck ? (
+                ) : currentFeature === 'inventory-3' && showInventory2SpotCheck ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
@@ -3890,7 +3890,7 @@ function App() {
                       </div>
                     )}
                   </div>
-                ) : currentFeature === 'inventory-2' && showInventory2ItemsRules ? (
+                ) : currentFeature === 'inventory-3' && showInventory2ItemsRules ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <div className="d-flex align-items-center gap-3">
@@ -4557,7 +4557,7 @@ function App() {
                       </div>
                     )}
                   </div>
-                ) : currentFeature === 'inventory-2' && showInventory2SpotCheckWizard ? (
+                ) : currentFeature === 'inventory-3' && showInventory2SpotCheckWizard ? (
                   <div>
                     <div className="d-flex justify-content-between align-items-center mb-4">
                       <div className="d-flex align-items-center gap-3">

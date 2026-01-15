@@ -81,6 +81,21 @@ const schema = a.schema({
       consumptionRuleId: a.id(),
     })
     .authorization((allow) => [allow.publicApiKey()]),
+
+  InventoryItem3: a
+    .model({
+      itemName: a.string().required(),
+      qty: a.integer().required(),
+      rebuyQty: a.integer().required(),
+      location: a.string().required(),
+      category: a.string(),
+      status: a.string(),
+      tolerance: a.integer(),
+      description: a.string(),
+      unitPrice: a.float(),
+      consumptionRuleId: a.id(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
   
   PurchaseRecord: a
     .model({
